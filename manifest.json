@@ -1,0 +1,11 @@
+{
+	"id": "bible-sidecar",
+	"name": "Bible sidecar",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Open the bible in your prefered translation in a splitscreen view within obsidian.",
+	"author": "Obsidian",
+	"authorUrl": "https://github.com/janisringli",
+	"fundingUrl": "https://buymeacoffee.com/janisringli",
+	"isDesktopOnly": true
+}
