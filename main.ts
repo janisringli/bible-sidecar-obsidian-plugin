@@ -7,7 +7,7 @@ import {
 	Setting,
 	WorkspaceLeaf,
 } from "obsidian";
-import { BibleView, BibleViewType } from "./bibleView";
+import { BibleView, BibleViewType } from "BibleView";
 
 // Remember to rename these classes and interfaces!
 
