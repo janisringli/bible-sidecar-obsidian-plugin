@@ -8,14 +8,20 @@ If your plugin does not need CSS, delete this file.
 
 */
 
-.chapter-container{
+
+.chapter-button{
+	width: fit-content;
+}
+[data-type="bible-view"] .chapter-container{
 	display: flex;
 	flex-direction: row;
 	gap: 10px;
 	flex-wrap: wrap;
-	margin: 50px;
-	overflow-y:visible;
+	margin: 25px;
+	height: auto;
+	overflow: auto;
 }
-.chapter-button{
-	width: fit-content;
+[data-type="bible-view"] .bible-wrapper{
+	height: 100%;
+	overflow-y: auto;
 }

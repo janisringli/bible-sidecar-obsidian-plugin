@@ -31,10 +31,11 @@ export class BibleView extends ItemView {
 		const url = "https://bolls.life/get-books/NLT";
 		const response = await requestUrl(url);
 		const { containerEl } = this;
-
+		
 		containerEl.empty();
 		containerEl.createEl("h2", { text: "Bible View" });
-		const chapterContainer = containerEl.createEl("div" , { cls: "chapter-container" });
+		const ChapterWrapper = containerEl.createEl("div", { cls: "bible-wrapper" });
+		const chapterContainer = ChapterWrapper.createEl("div" , { cls: "chapter-container" });
 		for (const book of response.json) {
 			console.log(book.name);
 			chapterContainer.createEl("button", { text: book.name , attr: { id: book.bookid }}).addEventListener("click", async () => {
