@@ -1,3 +1,4 @@
+
 import {
 	ItemView,
 	WorkspaceLeaf,
@@ -24,36 +25,40 @@ export class BibleView extends ItemView {
 	}
 	public load(): void {
 		super.load();
-		this.loadBible();
 	}
 
 	async onOpen() {
 		const url = "https://bolls.life/get-books/NLT";
 		const response = await requestUrl(url);
-
-		console.log(response.json);
-		
-
-		
-
 		const { containerEl } = this;
 
 		containerEl.empty();
 		containerEl.createEl("h2", { text: "Bible View" });
-		const dropdownContainerEl = containerEl.createEl("div", {cls:"dropdown-container" });
-		const dropdownBook = dropdownContainerEl.createEl("select", { attr: { id: "books" } });
+		const chapterContainer = containerEl.createEl("div" , { cls: "chapter-container" });
 		for (const book of response.json) {
 			console.log(book.name);
-			dropdownBook.createEl("option", { text: book.name });
+			chapterContainer.createEl("button", { text: book.name , attr: { id: book.bookid }}).addEventListener("click", async () => {
+				chapterContainer.empty();
+				for (let i = 1; i <= book.chapters; i++) {
+					chapterContainer.createEl("button", { text: i.toString(), cls: "chapter-button" }).addEventListener("click", async () => {
+						const chapterContent = await this.getChapterContent(book.bookid, i);
+						chapterContainer.empty();
+						chapterContainer.createEl("h2", { text: `${book.name} ${i}` });
+						for (const verse of chapterContent) {
+							chapterContainer.createEl("span", { text: verse.text });
+						}
+						// Now you can do whatever you want with the chapter content
+					});
+				}
+			});
 		}
-		const dropdownChapter = dropdownContainerEl.createEl("select", { attr: { id: "chapters" } });
-		
 	}
-	async loadBible() {
-		//const { contentEl } = this;
-		
-	}
-	public getChapter(selectedBook: string) {
-		console.log(selectedBook);
+
+	async getChapterContent(bookid: number, chapter: number) {
+		const url = `https://bolls.life/get-chapter/NLT/${bookid}/${chapter}`;
+		console.log(url);
+		const response = await requestUrl(url);
+		console.log(response.json);
+		return response.json;
 	}
 }

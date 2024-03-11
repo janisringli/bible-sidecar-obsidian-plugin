@@ -8,12 +8,14 @@ If your plugin does not need CSS, delete this file.
 
 */
 
-.bible-book-dropdown {
-	width: 100px;
-}
-
-.dropdown-container {
+.chapter-container{
 	display: flex;
 	flex-direction: row;
 	gap: 10px;
+	flex-wrap: wrap;
+	margin: 50px;
+	overflow-y:visible;
+}
+.chapter-button{
+	width: fit-content;
 }
