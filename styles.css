@@ -31,3 +31,6 @@ If your plugin does not need CSS, delete this file.
 	height: 100%;
 	overflow-y: auto;
 }
+.book-divider{
+	width: 100%;
+}
