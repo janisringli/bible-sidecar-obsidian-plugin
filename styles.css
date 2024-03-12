@@ -21,6 +21,12 @@ If your plugin does not need CSS, delete this file.
 	height: auto;
 	overflow: auto;
 }
+[data-type="bible-view"] .chapter-container p{
+	text-align: justify;
+}
+[data-type="bible-view"] .chapter-container p:hover{
+	cursor: auto;
+}
 [data-type="bible-view"] .bible-wrapper{
 	height: 100%;
 	overflow-y: auto;
