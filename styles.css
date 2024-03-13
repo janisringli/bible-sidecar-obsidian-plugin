@@ -34,3 +34,10 @@ If your plugin does not need CSS, delete this file.
 .book-divider{
 	width: 100%;
 }
+.controls-container{
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+	align-items: center;
+	width: 100%;
+}
