@@ -8,11 +8,10 @@ If your plugin does not need CSS, delete this file.
 
 */
 
-
-.chapter-button{
+.chapter-button {
 	width: fit-content;
 }
-[data-type="bible-view"] .chapter-container{
+[data-type="bible-view"] .chapter-container {
 	display: flex;
 	flex-direction: row;
 	gap: 10px;
@@ -21,20 +20,24 @@ If your plugin does not need CSS, delete this file.
 	height: auto;
 	overflow: auto;
 }
-[data-type="bible-view"] .chapter-container p{
+[data-type="bible-view"] .chapter-container p {
 	text-align: justify;
 }
-[data-type="bible-view"] .chapter-container p:hover{
+[data-type="bible-view"] .chapter-container span:hover {
 	cursor: auto;
+	text-decoration: underline;
 }
-[data-type="bible-view"] .bible-wrapper{
+[data-type="bible-view"] .active-verse {
+	text-decoration: dotted underline;
+}
+[data-type="bible-view"] .bible-wrapper {
 	height: 100%;
 	overflow-y: auto;
 }
-.book-divider{
+.book-divider {
 	width: 100%;
 }
-.controls-container{
+.controls-container {
 	display: flex;
 	flex-direction: row;
 	justify-content: space-between;
