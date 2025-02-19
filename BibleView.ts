@@ -268,51 +268,57 @@ export class BibleView extends ItemView {
 		chapterContent.empty();
 
 		let scriptureRaw = "";
-		const editedScripture = scriptureRaw.replace(/<br>/g, "\n");
-		const scripture = chapterContent.createEl("p", {
-			text: editedScripture,
-		});
 		let accumulatedVerseText = "";
+
+		function filterVerse(verse: string): string {
+			return verse.replace(/\s*<br>\s*/gi, "<br>");
+		}
 
 		for (const verse of chapter) {
 			const formattedVerseNumber = this.convertToSuperscript(verse.verse);
-			scriptureRaw += `${formattedVerseNumber} ${verse.text} `;
+			const filteredVerseText = filterVerse(verse.text);
 
-			const formattedVerse = scripture.createEl("span", {
-				text: `${formattedVerseNumber} ${verse.text}`,
-				cls: "verse",
+			scriptureRaw += `${formattedVerseNumber} ${filteredVerseText} `;
+
+			const formattedVerse = chapterContent.createEl("span", {
+				cls: "verse", // other properties if needed
 			});
+			formattedVerse.innerHTML = `${formattedVerseNumber} ${filteredVerseText}`; // Set innerHTML directly
 
 			formattedVerse.addEventListener("click", () => {
 				formattedVerse.classList.toggle("active-verse");
 
-				const verseIdentifier = `${formattedVerseNumber} ${verse.text}`; // Combine number and text
+				const verseIdentifier = `${formattedVerseNumber} ${verse.text}`;
 
 				if (formattedVerse.classList.contains("active-verse")) {
-					accumulatedVerseText += verseIdentifier + " "; // Add verse identifier to accumulated string
+					accumulatedVerseText += verseIdentifier + " ";
 				} else {
 					accumulatedVerseText = accumulatedVerseText.replace(
 						verseIdentifier + " ",
 						""
-					); // Remove verse identifier
+					);
 				}
 				navigator.clipboard.writeText(accumulatedVerseText.trim());
 				this.renderCopyMessage(book, i, accumulatedVerseText);
 			});
 
-			// Important: Append the formattedVerse to the DOM somewhere here.
-			// For example:  someContainer.appendChild(formattedVerse);
+			chapterContent.appendChild(formattedVerse);
 		}
+
+		const editedScripture = scriptureRaw;
+		// Set innerHTML for the paragraph
+		chapterContent.appendChild(editedScripture);
+
+		// Now that scriptureRaw is built, perform the replacement
+
+		// Important: Append the formattedVerse to the DOM somewhere here.
+		// For example:  someContainer.appendChild(formattedVerse);
 	}
 	renderCopyMessage(
 		book: any,
 		chapter: number, // Changed 'i' to 'chapter' for clarity
 		accumulatedVerseText: string
 	) {
-		let selectedVerseObject = {
-			book: book.name,
-			chapter: chapter,
-		};
 		//split the accumulatedVerseText into an array of verses where each verse is a string splited by this regex const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
 		const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
 
@@ -322,7 +328,7 @@ export class BibleView extends ItemView {
 				const matches = Array.from(verse.matchAll(regex));
 
 				if (matches.length === 0) {
-					return [{ verse: null, text: verse.trim() }];
+					return [{ verse: 0, text: verse.trim() }];
 				}
 
 				let lastMatchEnd = 0;
@@ -360,10 +366,16 @@ export class BibleView extends ItemView {
 				}
 				return a.verse - b.verse;
 			});
-		console.log(accumulatedVerseText);
-		navigator.clipboard.writeText(accumulatedVerseText.trim());
-		console.log(verses);
-		console.log(accumulatedVerseText);
+
+		//sorts the verses in ascending order
+		let sortedText = "";
+		for (const verse of verses) {
+			sortedText += `${this.convertToSuperscript(verse.verse)} ${
+				verse.text
+			}`;
+		}
+		//adds the sorted book name and chapter number to the clipboard
+		navigator.clipboard.writeText(sortedText.trim());
 
 		new Notice(`Copied ${book.name} to clipboard`);
 	}
