@@ -38,7 +38,6 @@ export class BibleView extends ItemView {
 	}
 
 	async onOpen() {
-		console.log(this.settings.bibleVersion);
 		const books = await this.generateBibleBooks();
 		this.renderBooks(books);
 	}
@@ -51,9 +50,7 @@ export class BibleView extends ItemView {
 
 	async getChapterContent(bookid: number, chapter: number) {
 		const url = `https://bolls.life/get-chapter/${this.settings.bibleVersion}/${bookid}/${chapter}`;
-		console.log(url);
 		const response = await requestUrl(url);
-		console.log(response.json);
 		return response.json;
 	}
 	convertToSuperscript(number: string) {
@@ -187,7 +184,6 @@ export class BibleView extends ItemView {
 		i: number,
 		books: any[]
 	) {
-		console.log(book);
 		chapterContainer.createEl("h2", { text: `${book.name} ${i}` });
 		const controlsContainer = chapterContainer.createDiv({
 			cls: "controls-container",
@@ -205,7 +201,6 @@ export class BibleView extends ItemView {
 					book.bookid,
 					newChapter
 				);
-				console.log(previousChapterContent);
 				chapterContainer.empty();
 				this.processChapterContent(
 					previousChapterContent,
@@ -251,7 +246,6 @@ export class BibleView extends ItemView {
 					book.bookid,
 					newChapter
 				);
-				console.log("next chapter content", nextChapterContent);
 
 				chapterContainer.empty();
 				this.processChapterContent(

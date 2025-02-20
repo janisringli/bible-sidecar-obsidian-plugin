@@ -35,10 +35,7 @@ export default class BibleSidecarPlugin extends Plugin {
 			(evt: MouseEvent) => {
 				// Called when the user clicks the icon.
 				// open new view
-				new Notice("wait that actually worked!");
-				console.log("markdown view found");
 				this.toggleBibleSidecarView();
-				new Notice("This is a notice!");
 			}
 		);
 
