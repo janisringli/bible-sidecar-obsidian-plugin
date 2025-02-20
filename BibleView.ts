@@ -317,60 +317,47 @@ export class BibleView extends ItemView {
 	}
 	renderCopyMessage(
 		book: any,
-		chapter: number, // Changed 'i' to 'chapter' for clarity
+		chapter: number,
 		accumulatedVerseText: string,
 		verse: { verse: string; text: string }
 	) {
-		//split the accumulatedVerseText into an array of verses where each verse is a string splited by this regex const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
 		const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
 
 		const verses = accumulatedVerseText
 			.split("\n")
 			.flatMap((verse) => {
-				const matches = Array.from(verse.matchAll(regex));
+				const matchesIterator = verse.matchAll(regex);
+				const matches = Array.from(matchesIterator).filter(
+					(match) => match !== null
+				); // Filter out null matches
 
 				if (matches.length === 0) {
 					return [{ verse: 0, text: verse.trim() }];
 				}
 
-				return matches.map((match) => {
-					const verseNumber = this.convertToNumber(match[0]);
-					const verseStart = match.index + match[0].length;
-					const verseEnd =
-						matches.indexOf(match) === matches.length - 1
-							? verse.length
-							: Array.from(verse.matchAll(regex))[
-									matches.indexOf(match) + 1].index;
-					const verseText = verse
-						.substring(verseStart, verseEnd)
-						.trim();
-					return {
-						verse: verseNumber,
-						text: verseText,
-					};
-				});
 			})
 			.sort((a, b) => {
-				if (a.verse === null && b.verse === null) {
+				if (a?.verse === null && b?.verse === null) {
 					return 0;
 				}
-				if (a.verse === null) {
+				if (a?.verse === null) {
 					return -1;
 				}
-				if (b.verse === null) {
+				if (b?.verse === null) {
 					return 1;
 				}
-				return a.verse - b.verse;
+				return (a?.verse ?? 0) - (b?.verse ?? 0);
 			});
 
-		//sorts the verses in ascending order
 		let sortedText = "";
 		for (const verse of verses) {
-			sortedText += `${this.convertToSuperscript(
-				verse.verse.toString()
-			)} ${verse.text}`;
+			if (verse) {
+				sortedText += `${this.convertToSuperscript(
+					verse.verse.toString()
+				)} ${verse.text}`;
+			}
 		}
-		//adds the sorted book name and chapter number to the clipboard
+
 		navigator.clipboard.writeText(sortedText.trim());
 
 		new Notice(
