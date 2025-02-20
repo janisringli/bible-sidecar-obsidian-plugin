@@ -299,7 +299,7 @@ export class BibleView extends ItemView {
 					);
 				}
 				navigator.clipboard.writeText(accumulatedVerseText.trim());
-				this.renderCopyMessage(book, i, accumulatedVerseText);
+				this.renderCopyMessage(book, i, accumulatedVerseText, verse);
 			});
 
 			chapterContent.appendChild(formattedVerse);
@@ -317,7 +317,8 @@ export class BibleView extends ItemView {
 	renderCopyMessage(
 		book: any,
 		chapter: number, // Changed 'i' to 'chapter' for clarity
-		accumulatedVerseText: string
+		accumulatedVerseText: string,
+		verse: { verse: string; text: string }
 	) {
 		//split the accumulatedVerseText into an array of verses where each verse is a string splited by this regex const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
 		const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
@@ -377,6 +378,8 @@ export class BibleView extends ItemView {
 		//adds the sorted book name and chapter number to the clipboard
 		navigator.clipboard.writeText(sortedText.trim());
 
-		new Notice(`Copied ${book.name} to clipboard`);
+		new Notice(
+			`Copied ${book.name}  ${chapter}:${verse.verse} to clipboard`
+		);
 	}
 }
