@@ -73,7 +73,7 @@ export class BibleView extends ItemView {
 
 		const digits = String(number).split("");
 		const superscriptedDigits = digits.map(
-			(digit) => superscriptMap[digit]
+			(digit: keyof typeof superscriptMap) => superscriptMap[digit]
 		);
 		return superscriptedDigits.join("");
 	}
@@ -92,7 +92,9 @@ export class BibleView extends ItemView {
 		};
 		const digits = superscriptNumber
 			.split("")
-			.map((digit) => superscriptMap[digit]);
+			.map(
+				(digit) => superscriptMap[digit as keyof typeof superscriptMap]
+			);
 		return parseInt(digits.join(""), 10);
 	}
 
@@ -106,7 +108,7 @@ export class BibleView extends ItemView {
 		const chapterContainer = ChapterWrapper.createEl("div", {
 			cls: "chapter-container",
 		});
-		const chapterContent = chapterContainer.createEl("div", {
+		chapterContainer.createEl("div", {
 			cls: "chapter-content",
 		});
 
@@ -144,7 +146,7 @@ export class BibleView extends ItemView {
 
 		// Header with back button
 		const header = chapterContainer.createDiv({ cls: "bible-header" });
-		const controlsContainer = chapterContainer.createDiv({
+		chapterContainer.createDiv({
 			cls: "controls-container",
 		});
 
@@ -332,8 +334,6 @@ export class BibleView extends ItemView {
 					return [{ verse: 0, text: verse.trim() }];
 				}
 
-				let lastMatchEnd = 0;
-
 				return matches.map((match) => {
 					const verseNumber = this.convertToNumber(match[0]);
 					const verseStart = match.index + match[0].length;
@@ -341,14 +341,10 @@ export class BibleView extends ItemView {
 						matches.indexOf(match) === matches.length - 1
 							? verse.length
 							: Array.from(verse.matchAll(regex))[
-									matches.indexOf(match) + 1
-							  ].index;
+									matches.indexOf(match) + 1].index;
 					const verseText = verse
 						.substring(verseStart, verseEnd)
 						.trim();
-
-					lastMatchEnd = verseStart + verseText.length;
-
 					return {
 						verse: verseNumber,
 						text: verseText,
@@ -371,7 +367,7 @@ export class BibleView extends ItemView {
 		//sorts the verses in ascending order
 		let sortedText = "";
 		for (const verse of verses) {
-			sortedText += `${this.convertToSuperscript(verse.verse)} ${
+			sortedText += `${this.convertToSuperscript(verse.verse.toString())} ${
 				verse.text
 			}`;
 		}
