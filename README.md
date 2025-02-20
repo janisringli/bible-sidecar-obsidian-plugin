@@ -44,6 +44,3 @@ Contributions are welcome! Please submit bug reports and feature requests throug
 
 > Special Thanks to all my coffee buyer's
 
-## License
-
-This plugin is licensed under the [MIT License](LICENSE).
