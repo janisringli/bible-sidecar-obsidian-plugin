@@ -1,10 +1,6 @@
 import {
-	App,
-	Modal,
 	Notice,
 	Plugin,
-	PluginSettingTab,
-	Setting,
 	WorkspaceLeaf,
 } from "obsidian";
 import { BibleView, BibleViewType } from "BibleView";
@@ -33,7 +29,7 @@ export default class BibleSidecarPlugin extends Plugin {
 		);
 
 		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon(
+		this.addRibbonIcon(
 			"book-open-text",
 			"Bible Sidecar",
 			(evt: MouseEvent) => {
@@ -54,10 +50,13 @@ export default class BibleSidecarPlugin extends Plugin {
 			return;
 		}
 
-		await this.app.workspace.getRightLeaf(false).setViewState({
-			type: BibleViewType,
-			active: true,
-		});
+		const rightLeaf = this.app.workspace.getRightLeaf(false);
+		if (rightLeaf) {
+			await rightLeaf.setViewState({
+				type: BibleViewType,
+				active: true,
+			});
+		}
 
 		this.app.workspace.revealLeaf(
 			this.app.workspace.getLeavesOfType(BibleViewType)[0]

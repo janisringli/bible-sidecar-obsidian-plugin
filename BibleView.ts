@@ -1,5 +1,4 @@
 import { ItemView, WorkspaceLeaf, requestUrl, Notice } from "obsidian";
-import { BibleSidecarSettingsTab } from "./settings";
 
 export const BibleViewType = "bible-view";
 
@@ -309,7 +308,7 @@ export class BibleView extends ItemView {
 
 		const editedScripture = scriptureRaw;
 		// Set innerHTML for the paragraph
-		chapterContent.appendChild(editedScripture);
+		chapterContent.appendChild(document.createTextNode(editedScripture));
 
 		// Now that scriptureRaw is built, perform the replacement
 
@@ -367,9 +366,9 @@ export class BibleView extends ItemView {
 		//sorts the verses in ascending order
 		let sortedText = "";
 		for (const verse of verses) {
-			sortedText += `${this.convertToSuperscript(verse.verse.toString())} ${
-				verse.text
-			}`;
+			sortedText += `${this.convertToSuperscript(
+				verse.verse.toString()
+			)} ${verse.text}`;
 		}
 		//adds the sorted book name and chapter number to the clipboard
 		navigator.clipboard.writeText(sortedText.trim());
