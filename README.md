@@ -15,6 +15,8 @@ These will be very appreciate for the project development. 👍
 
 ## Showcase
 
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/ea9e9fc5-dec2-4cf8-9538-7f27d85e311a" />
+
 ## How to use
 
 1.  Open the Bible Sidecar panel by clicking the Bible icon in the sidebar.
