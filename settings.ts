@@ -12,7 +12,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 	display() {
 		const { containerEl } = this;
 		containerEl.empty(); // Clear the container if it's not empty
-
+		containerEl.createEl("h2", { text: "Bible Sidecar Settings" });
 		new Setting(containerEl)
 			.setName("Default Bible Version")
 			.setDesc("Choose your preferred Bible version")
@@ -78,5 +78,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 						this.plugin.saveSettings();
 					});
 			});
+			//containerEl.createEl("h3", { text: "Format Options" });
 	}
+	
 }

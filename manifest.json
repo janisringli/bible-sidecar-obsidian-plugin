@@ -1,7 +1,7 @@
 {
 	"id": "bible-sidecar",
 	"name": "Bible sidecar",
-	"version": "1.0.6",
+	"version": "1.0.7",
 	"minAppVersion": "0.15.0",
 	"description": "Open the bible in your prefered translation in a splitscreen view within obsidian.",
 	"author": "Janis Ringli",

@@ -8,6 +8,8 @@ interface BibleSidecarSettings {
 
 const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	bibleVersion: "NLT",
+
+
 };
 
 export class BibleView extends ItemView {
@@ -53,7 +55,7 @@ export class BibleView extends ItemView {
 		const response = await requestUrl(url);
 		return response.json;
 	}
-	convertToSuperscript(number: string) {
+	convertToSuperscript(number: string): string {
 		const superscriptMap = {
 			"0": "⁰",
 			"1": "¹",
@@ -266,7 +268,7 @@ export class BibleView extends ItemView {
 		let accumulatedVerseText = "";
 
 		function filterVerse(verse: string): string {
-			return verse.replace(/\s*<br>\s*/gi, "<br>");
+			return verse.replace(/<br\s*\/?>|<\/?i>|<\/?b>/gi, "\n");
 		}
 
 		for (const verse of chapter) {
@@ -278,7 +280,12 @@ export class BibleView extends ItemView {
 			const formattedVerse = chapterContent.createEl("span", {
 				cls: "verse", // other properties if needed
 			});
-			formattedVerse.innerHTML = `${formattedVerseNumber} ${filteredVerseText}`; // Set innerHTML directly
+
+			formattedVerse.appendChild(
+				document.createTextNode(
+					`${formattedVerseNumber} ${filteredVerseText}`
+				)
+			);
 
 			formattedVerse.addEventListener("click", () => {
 				formattedVerse.classList.toggle("active-verse");
@@ -293,7 +300,6 @@ export class BibleView extends ItemView {
 						""
 					);
 				}
-				navigator.clipboard.writeText(accumulatedVerseText.trim());
 				this.renderCopyMessage(book, i, accumulatedVerseText, verse);
 			});
 
@@ -301,7 +307,6 @@ export class BibleView extends ItemView {
 		}
 
 		const editedScripture = scriptureRaw;
-		// Set innerHTML for the paragraph
 		chapterContent.appendChild(document.createTextNode(editedScripture));
 
 		// Now that scriptureRaw is built, perform the replacement
@@ -316,46 +321,79 @@ export class BibleView extends ItemView {
 		verse: { verse: string; text: string }
 	) {
 		const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
-
 		const verses = accumulatedVerseText
 			.split("\n")
 			.flatMap((verse) => {
-				const matchesIterator = verse.matchAll(regex);
-				const matches = Array.from(matchesIterator).filter(
-					(match) => match !== null
-				); // Filter out null matches
+				const matches = Array.from(verse.matchAll(regex));
 
 				if (matches.length === 0) {
 					return [{ verse: 0, text: verse.trim() }];
 				}
 
+				return matches.map((match) => {
+					const verseNumber = this.convertToNumber(match[0]);
+					const verseStart = match.index + match[0].length;
+					const verseEnd =
+						matches.indexOf(match) === matches.length - 1
+							? verse.length
+							: Array.from(verse.matchAll(regex))[
+									matches.indexOf(match) + 1].index;
+					const verseText = verse
+						.substring(verseStart, verseEnd)
+						.trim();
+
+					return {
+						verse: verseNumber,
+						text: verseText,
+					};
+				});
 			})
 			.sort((a, b) => {
-				if (a?.verse === null && b?.verse === null) {
-					return 0;
-				}
-				if (a?.verse === null) {
-					return -1;
-				}
-				if (b?.verse === null) {
-					return 1;
-				}
-				return (a?.verse ?? 0) - (b?.verse ?? 0);
+				return (a?.verse ?? 0) - (b?.verse ?? 0); // Simplified comparison
 			});
-
-		let sortedText = "";
+		
 		for (const verse of verses) {
-			if (verse) {
+			let verseRangeStart = 0;
+			let verseRangeEnd = 0;
+			let sortedText = "";
+
+			verses.forEach((verse, index) => {
+				if (verseRangeStart === 0) {
+					verseRangeStart = verse.verse;
+				}
+
+				// Check if the current verse is NOT consecutive to the previous one
+				if (index > 0 && verses[index - 1].verse !== verse.verse - 1) {
+					verseRangeEnd = verses[index - 1].verse; // End range at the *previous* verse
+					sortedText += ` \n-${book.name} ${chapter}:${ 
+						verseRangeStart === verseRangeEnd
+							? verseRangeStart
+							: verseRangeStart + "-" + verseRangeEnd
+					}  \n\n`; // Add range to sortedText
+					verseRangeStart = verse.verse; // Start a new range with the current verse
+				}
+
 				sortedText += `${this.convertToSuperscript(
 					verse.verse.toString()
 				)} ${verse.text}`;
-			}
+
+				// Handle the last verse
+				if (index === verses.length - 1) {
+					verseRangeEnd = verse.verse;
+					sortedText +=  ` \n-${book.name} ${chapter}:${ 
+						verseRangeStart === verseRangeEnd
+							? verseRangeStart
+							: verseRangeStart + "-" + verseRangeEnd
+					} `; // Add the last range or single verse
+				}
+			});
+			
+	
+			navigator.clipboard.writeText(sortedText.trim());
+
+			new Notice(
+				`Copied ${book.name} ${chapter}:${verse.verse} to clipboard`
+			);
 		}
-
-		navigator.clipboard.writeText(sortedText.trim());
-
-		new Notice(
-			`Copied ${book.name}  ${chapter}:${verse.verse} to clipboard`
-		);
 	}
 }

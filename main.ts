@@ -1,5 +1,4 @@
 import {
-	Notice,
 	Plugin,
 	WorkspaceLeaf,
 } from "obsidian";
