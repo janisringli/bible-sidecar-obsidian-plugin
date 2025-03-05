@@ -4,10 +4,25 @@ export const BibleViewType = "bible-view";
 
 interface BibleSidecarSettings {
 	bibleVersion: string;
+	copyFormat: string;
+	copyVerseReference: boolean;
+	verseReferenceStyle: string;
+	verseReferenceFormat: string;
+	verseReferenceInternalLinking: boolean;
+	verseReferenceInternalLinkingFormat: string;
+	bibleLanguage: string;
+
 }
 
 const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	bibleVersion: "NLT",
+	copyFormat: "plain",
+	copyVerseReference: false,
+	verseReferenceStyle: "- ",
+	verseReferenceFormat: "full",
+	verseReferenceInternalLinking: false,
+	verseReferenceInternalLinkingFormat:"short",
+	bibleLanguage: "en",
 
 
 };
@@ -264,7 +279,7 @@ export class BibleView extends ItemView {
 		});
 		chapterContent.empty();
 
-		let scriptureRaw = "";
+		
 		let accumulatedVerseText = "";
 
 		function filterVerse(verse: string): string {
@@ -274,8 +289,6 @@ export class BibleView extends ItemView {
 		for (const verse of chapter) {
 			const formattedVerseNumber = this.convertToSuperscript(verse.verse);
 			const filteredVerseText = filterVerse(verse.text);
-
-			scriptureRaw += `${formattedVerseNumber} ${filteredVerseText} `;
 
 			const formattedVerse = chapterContent.createEl("span", {
 				cls: "verse", // other properties if needed
@@ -305,9 +318,6 @@ export class BibleView extends ItemView {
 
 			chapterContent.appendChild(formattedVerse);
 		}
-
-		const editedScripture = scriptureRaw;
-		chapterContent.appendChild(document.createTextNode(editedScripture));
 
 		// Now that scriptureRaw is built, perform the replacement
 
@@ -351,11 +361,18 @@ export class BibleView extends ItemView {
 			.sort((a, b) => {
 				return (a?.verse ?? 0) - (b?.verse ?? 0); // Simplified comparison
 			});
-		
+			
+			//FIXME: 
+			// if (this.settings.copyFormat === "callout") {
+			// 	sortedText += "> ";
+			// 	}
+	
 		for (const verse of verses) {
 			let verseRangeStart = 0;
 			let verseRangeEnd = 0;
 			let sortedText = "";
+			//new variable to store the sorted text check if setting is set to callout
+			
 
 			verses.forEach((verse, index) => {
 				if (verseRangeStart === 0) {
@@ -365,7 +382,7 @@ export class BibleView extends ItemView {
 				// Check if the current verse is NOT consecutive to the previous one
 				if (index > 0 && verses[index - 1].verse !== verse.verse - 1) {
 					verseRangeEnd = verses[index - 1].verse; // End range at the *previous* verse
-					sortedText += ` \n-${book.name} ${chapter}:${ 
+					sortedText += ` \n- ${book.name} ${chapter}:${ 
 						verseRangeStart === verseRangeEnd
 							? verseRangeStart
 							: verseRangeStart + "-" + verseRangeEnd
@@ -380,7 +397,7 @@ export class BibleView extends ItemView {
 				// Handle the last verse
 				if (index === verses.length - 1) {
 					verseRangeEnd = verse.verse;
-					sortedText +=  ` \n-${book.name} ${chapter}:${ 
+					sortedText +=  ` \n- ${book.name} ${chapter}:${ 
 						verseRangeStart === verseRangeEnd
 							? verseRangeStart
 							: verseRangeStart + "-" + verseRangeEnd

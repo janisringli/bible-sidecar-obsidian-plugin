@@ -9,10 +9,27 @@ import { BibleSidecarSettingsTab } from "./settings";
 
 interface BibleSidecarSettings {
 	bibleVersion: string;
+	copyFormat: string;
+	copyVerseReference: boolean;
+	verseReferenceStyle: string;
+	verseReferenceFormat: string;
+	verseReferenceInternalLinking: boolean;
+	verseReferenceInternalLinkingFormat: string;
+	bibleLanguage: string;
+
 }
 
 const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	bibleVersion: "NLT",
+	copyFormat: "plain",
+	copyVerseReference: false,
+	verseReferenceStyle: "- ",
+	verseReferenceFormat: "full",
+	verseReferenceInternalLinking: false,
+	verseReferenceInternalLinkingFormat:"short",
+	bibleLanguage: "en",
+
+
 };
 
 export default class BibleSidecarPlugin extends Plugin {
