@@ -342,7 +342,7 @@ export class BibleView extends ItemView {
 
 				return matches.map((match) => {
 					const verseNumber = this.convertToNumber(match[0]);
-					const verseStart = match.index + match[0].length;
+					const verseStart = (match?.index ?? 0) + (match?.[0]?.length ?? 0);
 					const verseEnd =
 						matches.indexOf(match) === matches.length - 1
 							? verse.length
