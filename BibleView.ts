@@ -111,7 +111,7 @@ export class BibleView extends ItemView {
 		return parseInt(digits.join(""), 10);
 	}
 
-	renderBooks(books: any[]) {
+	renderBooks(books: { bookid: number; name: string; chapters: number }[]) {
 		const { containerEl } = this;
 		containerEl.empty();
 
@@ -151,9 +151,9 @@ export class BibleView extends ItemView {
 	}
 
 	async renderChapters(
-		book: any,
+		book: { bookid: number; name: string; chapters: number },
 		chapterContainer: HTMLElement,
-		books: any[]
+		books: { bookid: number; name: string; chapters: number }[]
 	) {
 		chapterContainer.empty();
 
@@ -197,9 +197,9 @@ export class BibleView extends ItemView {
 	processChapterContent(
 		chapter: { verse: string; text: string }[],
 		chapterContainer: HTMLElement,
-		book: any,
+		book: { bookid: number; name: string; chapters: number },
 		i: number,
-		books: any[]
+		books: { bookid: number; name: string; chapters: number }[]
 	) {
 		chapterContainer.createEl("h2", { text: `${book.name} ${i}` });
 		const controlsContainer = chapterContainer.createDiv({
@@ -313,7 +313,7 @@ export class BibleView extends ItemView {
 						""
 					);
 				}
-				this.renderCopyMessage(book, i, accumulatedVerseText, verse);
+				this.renderCopyMessage(book, i, accumulatedVerseText);
 			});
 
 			chapterContent.appendChild(formattedVerse);
@@ -325,10 +325,10 @@ export class BibleView extends ItemView {
 		// For example:  someContainer.appendChild(formattedVerse);
 	}
 	renderCopyMessage(
-		book: any,
+		book: { bookid: number; name: string; chapters: number },
 		chapter: number,
 		accumulatedVerseText: string,
-		verse: { verse: string; text: string }
+		//verse: { verse: string; text: string }
 	) {
 		const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
 		const verses = accumulatedVerseText
