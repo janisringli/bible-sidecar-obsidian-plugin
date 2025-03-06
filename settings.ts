@@ -12,9 +12,8 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 	display() {
 		const { containerEl } = this;
 		containerEl.empty(); // Clear the container if it's not empty
-		containerEl.createEl("h2", { text: "Bible Sidecar Settings" });
 		new Setting(containerEl)
-			.setName("Bible Language")
+			.setName("Bible language").setHeading()
 			.setDesc("Choose your preferred Bible language")
 			.addDropdown((dropdown: any) => {
 				dropdown.addOption("en", "English | English");
@@ -26,7 +25,6 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 				dropdown.addOption("nl", "Dutch | Nederlands");
 				dropdown.addOption("ar", "Arabic | العربية");
 				dropdown.addOption("ru", "Russian | Русский");
-
 			dropdown
 				.setValue(this.plugin.settings.bibleLanguage)
 				.onChange((value: any) => {
@@ -37,7 +35,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			}
 			);
 		new Setting(containerEl)
-			.setName("Default Bible Version")
+			.setName("Default bible version")
 			.setDesc("Choose your preferred Bible version")
 			.addDropdown((dropdown: any) => {
 				if(this.plugin.settings.bibleLanguage === "en"){
@@ -159,9 +157,8 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 						this.plugin.saveSettings();
 					});
 			});
-		containerEl.createEl("h3", { text: "Copy Format Options" });
 		new Setting(containerEl)
-			.setName("Copy Format")
+			.setName("Copy format").setHeading()
 			.setDesc("Choose how you want the Bible text to be copied")
 			.addDropdown((dropdown: any) => {
 				dropdown.addOption("plain", "Plain text");
@@ -172,10 +169,9 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 						this.plugin.settings.copyFormat = value;
 						this.plugin.saveSettings();
 					});
-			});
-			containerEl.createEl("h4", { text: "Reference Format Settings" });
+			})
 		new Setting(containerEl)
-			.setName("Copy Verse Reference")
+			.setName("Reference format").setHeading()
 			.setDesc("Include the verse reference when copying")
 			.addToggle((toggle) => {
 				toggle
@@ -199,7 +195,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 
 		// Create the "Verse Reference Format" setting, but initially hide it
 		const verseReferenceListSetting = new Setting(containerEl)
-			.setName("Verse Reference Format")
+			.setName("Verse reference format")
 			.setDesc("Choose the style of the verse reference")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("- ", "List (-)");
@@ -214,7 +210,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 					});
 			});
 			const verseReferenceFormatSetting = new Setting(containerEl)
-			.setName("Verse Reference Format")
+			.setName("Verse reference format")
 			.setDesc("Choose the format of the verse reference")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("full", "Full (e.g. John 3:16)");
@@ -230,7 +226,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			}
 			);
 			const verseReferenceInternalLinkingSetting = new Setting(containerEl)
-			.setName("Enable Internal Linking eg. [[John]]")
+			.setName("Enable internal linking eg. [[John]]")
 			.setDesc("Choose the format of the verse reference")
 			.addToggle((toggle) => {
 				toggle
@@ -245,7 +241,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			}
 			);
 			const verseReferenceInternalLinkingFormatSetting = new Setting(containerEl)
-			.setName("Choose Linking Format")
+			.setName("Choose linking format")
 			.setDesc("Choose the format of the verse reference")
 			.addDropdown((dropdown) => {
 				dropdown.addOption("full", "Full (e.g. [[John 3:16]])");

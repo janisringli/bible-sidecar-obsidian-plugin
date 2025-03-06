@@ -164,7 +164,7 @@ export class BibleView extends ItemView {
 		});
 
 		this.backButton = header.createEl("button", {
-			text: "Back to Books",
+			text: "Back to books",
 			cls: "back-button",
 		});
 		this.backButton.addEventListener("click", () => {
@@ -229,7 +229,7 @@ export class BibleView extends ItemView {
 			}
 		});
 		this.backButton = controlsContainer.createEl("button", {
-			text: "Back to Books",
+			text: "Back to books",
 			cls: "back-button",
 		});
 		this.backButton.addEventListener("click", () => {

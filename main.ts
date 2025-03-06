@@ -83,9 +83,6 @@ export default class BibleSidecarPlugin extends Plugin {
 		}
 	}
 	onunload() {
-		this.app.workspace
-			.getLeavesOfType(BibleViewType)
-			.forEach((leaf) => leaf.detach());
 	}
 
 	async loadSettings() {
