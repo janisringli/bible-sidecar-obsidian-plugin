@@ -13,7 +13,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty(); // Clear the container if it's not empty
 		new Setting(containerEl)
-			.setName("Bible language").setHeading()
+			.setName("Bible language")
 			.setDesc("Choose your preferred Bible language")
 			.addDropdown((dropdown: any) => {
 				dropdown.addOption("en", "English | English");
