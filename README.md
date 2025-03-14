@@ -11,7 +11,7 @@ These will be very appreciate for the project development. 👍
 >
 > -   👉 `Star` the Project
 > -   ☕️ **Buy me a coffee** @[buymeacoffee](https://buymeacoffee.com/janisringli)
-> -   ❤️ Provide Feedback in [`Issues`](https://github.com/janisringli/verse-of-the-day-for-obsidian/issues)
+> -   ❤️ Provide Feedback in [`Issues`](https://github.com/janisringli/bible-sidecar-obsidian-plugin/issues)
 
 ## Showcase
 
