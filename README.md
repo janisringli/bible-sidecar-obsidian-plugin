@@ -5,7 +5,6 @@ This plugin provides a Bible sidecar panel within Obsidian, allowing you to read
 [![Build for Bible Reference Project](https://github.com/tim-hub/obsidian-bible-reference/actions/workflows/build.yml/badge.svg)](https://github.com/janisringli/bible-sidecar-obsidian-plugin/actions/workflows/build.yml)
 [![verse of the day for obsidian user discussion forum](https://img.shields.io/badge/Issues-green)](https://github.com/janisringli/bible-sidecar-obsidian-plugin/issues)
 
-These will be very appreciate for the project development. 👍
 
 > These will be very appreciate for the project development. 👍
 >
