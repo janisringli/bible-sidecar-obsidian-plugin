@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, requestUrl, Notice } from "obsidian";
+import { ItemView, WorkspaceLeaf, requestUrl, Notice, Platform } from "obsidian";
 
 export const BibleViewType = "bible-view";
 
@@ -162,14 +162,24 @@ export class BibleView extends ItemView {
 		chapterContainer.createDiv({
 			cls: "controls-container",
 		});
+		
 
-		this.backButton = header.createEl("button", {
+		if (Platform.isMobileApp) {
+			this.backButton = header.createEl("button", {
+				text: "Books",
+				cls: "back-button",
+			});
+		}
+		else {
+			this.backButton = header.createEl("button", {
 			text: "Back to books",
 			cls: "back-button",
-		});
-		this.backButton.addEventListener("click", () => {
-			this.onOpen();
-		});
+			});
+		}
+	this.backButton.addEventListener("click", () => {
+		this.onOpen();
+	});
+		
 
 		for (let i = 1; i <= book.chapters; i++) {
 			chapterContainer
@@ -205,10 +215,19 @@ export class BibleView extends ItemView {
 		const controlsContainer = chapterContainer.createDiv({
 			cls: "controls-container",
 		});
-		this.previousButton = controlsContainer.createEl("button", {
-			text: "Previous chapter",
-			cls: "back-button",
-		});
+		
+		if (Platform.isMobileApp) {
+			this.previousButton = controlsContainer.createEl("button", {
+				text: "Previous",
+				cls: "previous-button",
+			});
+		}
+		else {
+			this.previousButton = controlsContainer.createEl("button", {
+				text: "Previous chapter",
+				cls: "previous-button",
+			});
+		}
 		this.previousButton.addEventListener("click", async () => {
 			let newChapter = i - 1;
 			if (newChapter < 1) {
@@ -228,17 +247,39 @@ export class BibleView extends ItemView {
 				);
 			}
 		});
-		this.backButton = controlsContainer.createEl("button", {
-			text: "Back to books",
-			cls: "back-button",
-		});
+		
+
+		if (Platform.isMobileApp) {
+			this.backButton = controlsContainer.createEl("button", {
+				text: "Back",
+				cls: "back-button",
+			});
+		}
+		else {
+			this.backButton = controlsContainer.createEl("button", {
+				text: "Back",
+				cls: "back-button",
+			});
+		}
+
 		this.backButton.addEventListener("click", () => {
 			this.onOpen();
 		});
-		this.nextButton = controlsContainer.createEl("button", {
-			text: "Next chapter",
-			cls: "back-button",
-		});
+		
+
+		if (Platform.isMobileApp) {
+			this.nextButton = controlsContainer.createEl("button", {
+				text: "Next",
+				cls: "next-button",
+			});
+		}
+		else {
+			this.nextButton = controlsContainer.createEl("button", {
+				text: "Next",
+				cls: "next-button",
+			});
+		}
+
 		this.nextButton.addEventListener("click", async () => {
 			//todo: add logic to go to next chapter
 			let newChapter = i + 1;

@@ -54,6 +54,13 @@ export default class BibleSidecarPlugin extends Plugin {
 				this.toggleBibleSidecarView();
 			}
 		);
+		this.addCommand({
+			id: "open-bible-sidecar",
+			name: "Open Bible Sidecar",
+			callback: this.toggleBibleSidecarView,
+			icon: "book-open-text",
+		});
+		this.initLeaf();
 
 	}
 	private readonly toggleBibleSidecarView = async (): Promise<void> => {
