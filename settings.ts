@@ -8,8 +8,20 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
+	
 
 	display() {
+		const LANGUAGE_DEFAULT_VERSIONS: Record<string, string> = {
+			en: "NLT",
+			de: "ELB",
+			fr: "NBS",
+			es: "BTX3",
+			pt: "ARA",
+			it: "NR06",
+			nl: "NLD",
+			ru: "SYNOD",
+			ar: "SVD",
+		};
 		const { containerEl } = this;
 		containerEl.empty(); // Clear the container if it's not empty
 		new Setting(containerEl)
@@ -29,6 +41,19 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.bibleLanguage)
 				.onChange((value: any) => {
 					this.plugin.settings.bibleLanguage = value;
+					// Set the default version based on the selected language
+					this.plugin.settings.bibleVersion =
+						LANGUAGE_DEFAULT_VERSIONS[value] ||
+						LANGUAGE_DEFAULT_VERSIONS["en"]; // Fallback to English if not found
+					// Update the dropdown for the default version
+					const defaultVersionDropdown =
+						containerEl.querySelector(
+							"select[data-setting='default-bible-version']"
+						) as HTMLSelectElement;
+					if (defaultVersionDropdown) {
+						defaultVersionDropdown.value =
+							this.plugin.settings.bibleVersion;
+					}
 					this.plugin.saveSettings();
 					this.display();
 				});
@@ -105,7 +130,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			}
 			if(this.plugin.settings.bibleLanguage === "es"){
 				dropdown.addOption("BTX3", "Biblia Textual 3ra Edicion");
-				dropdown.addOption("RVR1960", "Reina-Valera 1960");
+				//dropdown.addOption("RVR1960", "Reina-Valera 1960");
 				dropdown.addOption("RV2004", "Reina-Valera 2004");
 				dropdown.addOption("PDT", "Palabra de Dios para Todos");
 				dropdown.addOption("NVI", "Nueva Versión Internacional");
@@ -125,7 +150,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 				dropdown.addOption("NBV07", "Nova Bíblia Viva 2007");
 				dropdown.addOption("ALM21", "Bíblia Almeida Século 21");
 				dropdown.addOption("ARC09", "Almeida Revista e Corrigida 2009");
-				dropdown.addOption("AFC11", "Almeida Fiel Corrigida 2011");
+				//dropdown.addOption("AFC11", "Almeida Fiel Corrigida 2011");
 			}
 			if(this.plugin.settings.bibleLanguage === "it"){
 				dropdown.addOption("NR06", "Nuova Riveduta 2006");
@@ -154,6 +179,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.bibleVersion)
 					.onChange((value: any) => {
 						this.plugin.settings.bibleVersion = value;
+						
 						this.plugin.saveSettings();
 					});
 			});
