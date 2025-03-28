@@ -53,20 +53,28 @@ export class BibleView extends ItemView {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings);
 		super.load();
 	}
-
+	public updateSettings(newSettings: BibleSidecarSettings): void {
+		this.settings = newSettings;
+		this.loadBible(); // Or re-render as needed
+	}
 	async onOpen() {
-		const books = await this.generateBibleBooks();
+		this.loadBible()
+	}
+
+	async loadBible() {
+		const books = await this.generateBibleBooks(this.settings.bibleVersion);
 		this.renderBooks(books);
 	}
 
-	async generateBibleBooks() {
-		const url = `https://bolls.life/get-books/${this.settings.bibleVersion}`;
+
+	async generateBibleBooks(language: string) {
+		const url = `https://bolls.life/get-books/${language}`;
 		const response = await requestUrl(url);
 		return response.json;
 	}
 
-	async getChapterContent(bookid: number, chapter: number) {
-		const url = `https://bolls.life/get-chapter/${this.settings.bibleVersion}/${bookid}/${chapter}`;
+	async getChapterContent(version: string, bookid: number, chapter: number) {
+		const url = `https://bolls.life/get-chapter/${version}/${bookid}/${chapter}`;
 		const response = await requestUrl(url);
 		return response.json;
 	}
@@ -188,7 +196,7 @@ export class BibleView extends ItemView {
 					cls: "chapter-button",
 				})
 				.addEventListener("click", async () => {
-					const chapterContentArray = await this.getChapterContent(
+					const chapterContentArray = await this.getChapterContent(this.settings.bibleVersion,
 						book.bookid,
 						i
 					);
@@ -233,7 +241,7 @@ export class BibleView extends ItemView {
 			if (newChapter < 1) {
 				newChapter = 1;
 			} else {
-				const previousChapterContent = await this.getChapterContent(
+				const previousChapterContent = await this.getChapterContent(this.settings.bibleVersion,
 					book.bookid,
 					newChapter
 				);
@@ -257,7 +265,7 @@ export class BibleView extends ItemView {
 		}
 		else {
 			this.backButton = controlsContainer.createEl("button", {
-				text: "Back",
+				text: "Back to books",
 				cls: "back-button",
 			});
 		}
@@ -275,7 +283,7 @@ export class BibleView extends ItemView {
 		}
 		else {
 			this.nextButton = controlsContainer.createEl("button", {
-				text: "Next",
+				text: "Next chapter",
 				cls: "next-button",
 			});
 		}
@@ -287,7 +295,7 @@ export class BibleView extends ItemView {
 				const newBookId = book.bookid + 1;
 				const newBook = books[newBookId - 1];
 				newChapter = 1;
-				const nextChapterContent = await this.getChapterContent(
+				const nextChapterContent = await this.getChapterContent(this.settings.bibleVersion,
 					newBookId,
 					newChapter
 				);
@@ -300,7 +308,7 @@ export class BibleView extends ItemView {
 					books
 				);
 			} else {
-				const nextChapterContent = await this.getChapterContent(
+				const nextChapterContent = await this.getChapterContent(this.settings.bibleVersion,
 					book.bookid,
 					newChapter
 				);

@@ -5,8 +5,6 @@ import {
 import { BibleView, BibleViewType } from "BibleView";
 import { BibleSidecarSettingsTab } from "./settings";
 
-// Remember to rename these classes and interfaces!
-
 interface BibleSidecarSettings {
 	bibleVersion: string;
 	copyFormat: string;
@@ -16,7 +14,6 @@ interface BibleSidecarSettings {
 	verseReferenceInternalLinking: boolean;
 	verseReferenceInternalLinkingFormat: string;
 	bibleLanguage: string;
-
 }
 
 const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
@@ -26,43 +23,59 @@ const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	verseReferenceStyle: "- ",
 	verseReferenceFormat: "full",
 	verseReferenceInternalLinking: false,
-	verseReferenceInternalLinkingFormat:"short",
+	verseReferenceInternalLinkingFormat: "short",
 	bibleLanguage: "en",
+};
 
-
+const LANGUAGE_DEFAULT_VERSIONS: Record<string, string> = {
+	en: "NLT",
+	de: "ELB",
+	fr: "NBS",
+	es: "BTX3",
+	pt: "ARA",
+	it: "NR06",
+	nl: "NLD",
+	ru: "SYNOD",
+	ar: "SVD",
 };
 
 export default class BibleSidecarPlugin extends Plugin {
 	settings: BibleSidecarSettings;
-	private view: BibleView;
+	private view: BibleView | undefined;
+
 	async onload() {
 		await this.loadSettings();
-		console.log(this.settings.bibleVersion);
+
 		this.addSettingTab(new BibleSidecarSettingsTab(this.app, this));
+
 		this.registerView(
 			BibleViewType,
-			(leaf: WorkspaceLeaf) => (this.view = new BibleView(leaf))
+			(leaf: WorkspaceLeaf) => {
+				const view = new BibleView(leaf);
+				this.view = view;
+				view.settings = this.settings;
+				return view;
+			}
 		);
 
-		// This creates an icon in the left ribbon.
 		this.addRibbonIcon(
 			"book-open-text",
 			"Bible Sidecar",
 			(evt: MouseEvent) => {
-				// Called when the user clicks the icon.
-				// open new view
 				this.toggleBibleSidecarView();
 			}
 		);
+
 		this.addCommand({
 			id: "open-bible-sidecar",
 			name: "Open Bible Sidecar",
 			callback: this.toggleBibleSidecarView,
 			icon: "book-open-text",
 		});
-		this.initLeaf();
 
+		this.initLeaf();
 	}
+
 	private readonly toggleBibleSidecarView = async (): Promise<void> => {
 		const existing = this.app.workspace.getLeavesOfType(BibleViewType);
 		if (existing.length) {
@@ -89,18 +102,33 @@ export default class BibleSidecarPlugin extends Plugin {
 			return;
 		}
 	}
-	onunload() {
-	}
+
+	updateBibleViewSettings = (newSettings: BibleSidecarSettings) => {
+		if (this.view) {
+			this.view.updateSettings(newSettings);
+		}
+	};
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
+		await this.loadData().then((data) => {
+			this.settings = Object.assign(
+				{},
+				DEFAULT_SETTINGS,
+				data,
+				{
+					bibleVersion:
+						data?.bibleLanguage &&
+						LANGUAGE_DEFAULT_VERSIONS[data.bibleLanguage]
+							? LANGUAGE_DEFAULT_VERSIONS[data.bibleLanguage]
+							: LANGUAGE_DEFAULT_VERSIONS["en"], // Default to "en" if not found
+				}
+			);
+		});
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		console.log("Saved settings", this.settings);
+		this.updateBibleViewSettings(this.settings);
 	}
 }
