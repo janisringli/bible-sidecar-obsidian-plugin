@@ -198,7 +198,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			})
 		new Setting(containerEl)
 			.setName("Reference format").setHeading()
-			.setDesc("Include the verse reference when copying")
+			.setDesc("Include the verse reference when copying (recommended)")
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.copyVerseReference)
@@ -260,38 +260,16 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 					.onChange((value) => {
 						this.plugin.settings.verseReferenceInternalLinking = value;
 						this.plugin.saveSettings();
-						verseReferenceInternalLinkingFormatSetting.settingEl.style.display =
-							value ? "block" : "none";
+						
 							this.display();
 					});
 			}
 			);
-			const verseReferenceInternalLinkingFormatSetting = new Setting(containerEl)
-			.setName("Choose linking format")
-			.setDesc("Choose the format of the verse reference")
-			.addDropdown((dropdown) => {
-				dropdown.addOption("full", "Full (e.g. [[John 3:16]])");
-				dropdown.addOption("medium", "Medium (e.g. [[John 3]]:16)");
-				dropdown.addOption("short", "Short (e.g. [[John]] 3:16)");
-				dropdown
-					.setValue(this.plugin.settings.verseReferenceInternalLinkingFormat)
-					.onChange((value) => {
-						this.plugin.settings.verseReferenceInternalLinkingFormat = value;
-						this.plugin.saveSettings
-			}
-
-			);
-		});
-
 		// Hide the "Verse Reference Format" setting initially
 		if (!this.plugin.settings.copyVerseReference) {
 			verseReferenceListSetting.settingEl.style.display = "none";
 			verseReferenceFormatSetting.settingEl.style.display = "none";
 			verseReferenceInternalLinkingSetting.settingEl.style.display = "none";
 		}
-		if(!this.plugin.settings.verseReferenceInternalLinking){
-			verseReferenceInternalLinkingFormatSetting.settingEl.style.display = "none";
-		}
-		
 	}
 }

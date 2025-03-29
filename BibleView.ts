@@ -21,11 +21,11 @@ const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	verseReferenceStyle: "- ",
 	verseReferenceFormat: "full",
 	verseReferenceInternalLinking: false,
-	verseReferenceInternalLinkingFormat:"short",
 	bibleLanguage: "en",
 
 
 };
+
 
 export class BibleView extends ItemView {
 	settings: BibleSidecarSettings;
@@ -420,6 +420,10 @@ export class BibleView extends ItemView {
 			let verseRangeStart = 0;
 			let verseRangeEnd = 0;
 			let sortedText = "";
+			const internalLinkStart = this.settings.verseReferenceInternalLinking === true ? `[[${book.name}]]` : `${book.name} ${chapter}:${verse.verse}`;
+				
+			
+			console.log("sortedText", sortedText);
 			//new variable to store the sorted text check if setting is set to callout
 			
 
@@ -431,26 +435,30 @@ export class BibleView extends ItemView {
 				// Check if the current verse is NOT consecutive to the previous one
 				if (index > 0 && verses[index - 1].verse !== verse.verse - 1) {
 					verseRangeEnd = verses[index - 1].verse; // End range at the *previous* verse
-					sortedText += ` \n- ${book.name} ${chapter}:${ 
-						verseRangeStart === verseRangeEnd
-							? verseRangeStart
-							: verseRangeStart + "-" + verseRangeEnd
-					}  \n\n`; // Add range to sortedText
+					if (this.settings.copyVerseReference) {
+						sortedText += ` \n${this.settings.copyFormat === "callout" ? "> " : ""}${this.settings.verseReferenceStyle} ${internalLinkStart} ${chapter}:${ 
+							verseRangeStart === verseRangeEnd
+								? verseRangeStart
+								: verseRangeStart + "-" + verseRangeEnd
+						}  \n\n`; // Add range to sortedText
+					}
 					verseRangeStart = verse.verse; // Start a new range with the current verse
 				}
 
-				sortedText += `${this.convertToSuperscript(
+				sortedText += `${this.settings.copyFormat === "callout" ? "> " : ""}${this.convertToSuperscript(
 					verse.verse.toString()
 				)} ${verse.text}`;
 
 				// Handle the last verse
 				if (index === verses.length - 1) {
 					verseRangeEnd = verse.verse;
-					sortedText +=  ` \n- ${book.name} ${chapter}:${ 
-						verseRangeStart === verseRangeEnd
-							? verseRangeStart
-							: verseRangeStart + "-" + verseRangeEnd
-					} `; // Add the last range or single verse
+					if (this.settings.copyVerseReference) {
+						sortedText += ` \n${this.settings.copyFormat === "callout" ? "> " : ""}${this.settings.verseReferenceStyle} ${internalLinkStart} ${chapter}:${ 
+							verseRangeStart === verseRangeEnd
+								? verseRangeStart
+								: verseRangeStart + "-" + verseRangeEnd
+						} `; // Add the last range or single verse
+					}
 				}
 			});
 			
