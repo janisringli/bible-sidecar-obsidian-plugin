@@ -420,7 +420,7 @@ export class BibleView extends ItemView {
 			let verseRangeStart = 0;
 			let verseRangeEnd = 0;
 			let sortedText = "";
-			const internalLinkStart = this.settings.verseReferenceInternalLinking === true ? `[[${book.name}]]` : `${book.name} ${chapter}:${verse.verse}`;
+			const internalLinkStart = this.settings.verseReferenceInternalLinking === true ? `[[${book.name}]]` : `${book.name}`;
 				
 			
 			console.log("sortedText", sortedText);
