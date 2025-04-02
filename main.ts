@@ -37,6 +37,7 @@ const LANGUAGE_DEFAULT_VERSIONS: Record<string, string> = {
 	nl: "NLD",
 	ru: "SYNOD",
 	ar: "SVD",
+	in: "TB",
 };
 
 export default class BibleSidecarPlugin extends Plugin {

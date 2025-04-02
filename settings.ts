@@ -21,6 +21,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			nl: "NLD",
 			ru: "SYNOD",
 			ar: "SVD",
+			in: "TB"
 		};
 		const { containerEl } = this;
 		containerEl.empty(); // Clear the container if it's not empty
@@ -37,6 +38,7 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 				dropdown.addOption("nl", "Dutch | Nederlands");
 				dropdown.addOption("ar", "Arabic | العربية");
 				dropdown.addOption("ru", "Russian | Русский");
+				dropdown.addOption("in", "Indonesian | Bahasa Indonesia");
 			dropdown
 				.setValue(this.plugin.settings.bibleLanguage)
 				.onChange((value: any) => {
@@ -173,6 +175,9 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			if(this.plugin.settings.bibleLanguage === "ar"){
 			dropdown.addOption("SVD", "Smith & Van Dyke");
 			}
+			if(this.plugin.settings.bibleLanguage === "in"){
+				dropdown.addOption("TB", "Terjemahan Baru");
+				}
 
 
 				dropdown
