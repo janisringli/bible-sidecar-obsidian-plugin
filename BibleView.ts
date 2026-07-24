@@ -19,6 +19,11 @@ export interface BibleTranslationOptionsState {
 	defaultVersion: string;
 }
 
+export interface BibleLanguageOption {
+	code: string;
+	label: string;
+}
+
 interface BibleSidecarSettings {
 	bibleVersion: string;
 	copyFormat: string;
@@ -112,6 +117,11 @@ interface HelloAOFootnoteRenderContext {
 	showFootnotes: boolean;
 }
 
+type BibleViewLocation =
+	| { type: "books" }
+	| { type: "chapters"; bookOrder: number }
+	| { type: "chapter"; bookOrder: number; chapter: number };
+
 const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	bibleVersion: "NLT",
 	copyFormat: "plain",
@@ -132,6 +142,7 @@ export class BibleView extends ItemView {
 	private activeBibleVersion = DEFAULT_SETTINGS.bibleVersion || "NLT";
 	private defaultBibleLanguage = DEFAULT_SETTINGS.bibleLanguage || "en";
 	private defaultBibleVersion = DEFAULT_SETTINGS.bibleVersion || "NLT";
+	private currentLocation: BibleViewLocation = { type: "books" };
 	private translationInitializedFromSettings = false;
 	private providerResolver: (language: string, version: string) => BibleProviderRoute = (
 		_language,
@@ -141,6 +152,7 @@ export class BibleView extends ItemView {
 		translations: [],
 		defaultVersion: this.activeBibleVersion,
 	});
+	private languageOptionsResolver: () => BibleLanguageOption[] = () => [];
 
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
@@ -175,6 +187,10 @@ export class BibleView extends ItemView {
 	): void {
 		this.translationOptionsResolver = resolver;
 		this.ensureActiveTranslationIsAvailable();
+	}
+
+	public setLanguageOptionsResolver(resolver: () => BibleLanguageOption[]): void {
+		this.languageOptionsResolver = resolver;
 	}
 
 	public updateSettings(newSettings: BibleSidecarSettings): void {
@@ -271,6 +287,27 @@ export class BibleView extends ItemView {
 		return this.translationOptionsResolver(this.activeBibleLanguage);
 	}
 
+	private getLanguageOptions(): BibleLanguageOption[] {
+		const languageOptions = this.languageOptionsResolver();
+		if (languageOptions.length) {
+			return languageOptions;
+		}
+
+		return [{ code: this.activeBibleLanguage, label: this.activeBibleLanguage }];
+	}
+
+	private getDefaultTranslationForLanguage(language: string): string {
+		const optionsState = this.translationOptionsResolver(language);
+		const defaultVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === optionsState.defaultVersion
+		);
+		if (defaultVersionExists) {
+			return optionsState.defaultVersion;
+		}
+
+		return optionsState.translations[0]?.short_name || optionsState.defaultVersion;
+	}
+
 	private ensureActiveTranslationIsAvailable(): void {
 		const optionsState = this.getTranslationOptionsState();
 		if (!optionsState.translations.length) {
@@ -290,6 +327,48 @@ export class BibleView extends ItemView {
 		this.activeBibleVersion = defaultVersionExists
 			? optionsState.defaultVersion
 			: optionsState.translations[0].short_name;
+	}
+
+	private renderLanguageSelector(container: HTMLElement): void {
+		const languageOptions = this.getLanguageOptions();
+		const activeLanguage = languageOptions.find(
+			(language) => language.code === this.activeBibleLanguage
+		);
+		const control = container.createDiv({ cls: "language-control" });
+		const select = control.createEl("select", {
+			cls: "language-select",
+			attr: {
+				"aria-label": "Bible language",
+				title: activeLanguage?.label || this.activeBibleLanguage,
+			},
+		});
+
+		for (const language of languageOptions) {
+			select.createEl("option", {
+				text: language.label,
+				attr: { value: language.code },
+			});
+		}
+
+		if (!activeLanguage) {
+			select.createEl("option", {
+				text: this.activeBibleLanguage,
+				attr: { value: this.activeBibleLanguage },
+			});
+		}
+
+		select.value = this.activeBibleLanguage;
+		select.addEventListener("change", () => {
+			this.activeBibleLanguage = select.value;
+			this.activeBibleVersion = this.getDefaultTranslationForLanguage(select.value);
+			const selectedLanguage = languageOptions.find(
+				(language) => language.code === select.value
+			);
+			if (selectedLanguage) {
+				select.setAttr("title", selectedLanguage.label);
+			}
+			void this.reloadCurrentLocation();
+		});
 	}
 
 	private renderTranslationSelector(container: HTMLElement): void {
@@ -331,8 +410,45 @@ export class BibleView extends ItemView {
 			if (selectedTranslation) {
 				select.setAttr("title", selectedTranslation.full_name);
 			}
-			void this.loadBible();
+			void this.reloadCurrentLocation();
 		});
+	}
+
+	private async reloadCurrentLocation(): Promise<void> {
+		const books = await this.generateBibleBooks();
+		const { containerEl } = this;
+		const location = this.currentLocation;
+		containerEl.empty();
+
+		if (location.type === "books") {
+			this.renderBooks(books);
+			return;
+		}
+
+		const matchingBook = this.findBookByOrder(books, location.bookOrder);
+		if (!matchingBook) {
+			this.renderBooks(books);
+			return;
+		}
+
+		const chapterWrapper = containerEl.createEl("div", { cls: "bible-wrapper" });
+		const chapterContainer = chapterWrapper.createEl("div", { cls: "chapter-container" });
+
+		if (location.type === "chapters") {
+			await this.renderChapters(matchingBook, chapterContainer, books);
+			return;
+		}
+
+		await this.openChapter(
+			matchingBook,
+			Math.min(location.chapter, matchingBook.chapters),
+			chapterContainer,
+			books
+		);
+	}
+
+	private findBookByOrder(books: BibleBook[], bookOrder: number): BibleBook | undefined {
+		return books.find((book) => book.order === bookOrder);
 	}
 
 	private createBibleHeader(container: HTMLElement, title?: string): HTMLElement {
@@ -344,7 +460,9 @@ export class BibleView extends ItemView {
 				cls: "bible-sidecar-heading",
 			});
 		}
-		this.renderTranslationSelector(header);
+		const selectors = header.createDiv({ cls: "bible-sidecar-selectors" });
+		this.renderLanguageSelector(selectors);
+		this.renderTranslationSelector(selectors);
 		return headerPrimary;
 	}
 
@@ -389,6 +507,7 @@ export class BibleView extends ItemView {
 	renderBooks(books: BibleBook[]): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		this.currentLocation = { type: "books" };
 
 		const chapterWrapper = containerEl.createEl("div", { cls: "bible-wrapper" });
 		const chapterContainer = chapterWrapper.createEl("div", { cls: "chapter-container" });
@@ -425,6 +544,7 @@ export class BibleView extends ItemView {
 		books: BibleBook[]
 	): Promise<void> {
 		chapterContainer.empty();
+		this.currentLocation = { type: "chapters", bookOrder: book.order };
 
 		const header = this.createBibleHeader(chapterContainer, book.name);
 		chapterContainer.createDiv({ cls: "controls-container" });
@@ -466,6 +586,11 @@ export class BibleView extends ItemView {
 		chapterNumber: number,
 		books: BibleBook[]
 	): void {
+		this.currentLocation = {
+			type: "chapter",
+			bookOrder: book.order,
+			chapter: chapterNumber,
+		};
 		this.createBibleHeader(chapterContainer, `${book.name} ${chapterNumber}`);
 		const controlsContainer = chapterContainer.createDiv({ cls: "controls-container" });
 
@@ -619,7 +744,9 @@ export class BibleView extends ItemView {
 				continue;
 			}
 			if ("lineBreak" in item) {
-				container.appendChild(document.createElement("br"));
+				const lineBreakEl = document.createElement("br");
+				lineBreakEl.classList.add("helloao-line-break");
+				container.appendChild(lineBreakEl);
 				continue;
 			}
 			if ("text" in item) {
@@ -627,7 +754,9 @@ export class BibleView extends ItemView {
 					? container.createEl("span", { cls: item.wordsOfJesus ? "words-of-jesus" : undefined })
 					: container;
 				if (item.poem) {
+					textEl.addClass("poetry-line");
 					textEl.addClass(`poetry-indent-${item.poem}`);
+					textEl.style.setProperty("--bible-sidecar-poetry-level", String(item.poem));
 				}
 				textEl.appendChild(document.createTextNode(item.text));
 				continue;

@@ -4,7 +4,7 @@ import {
 	WorkspaceLeaf,
 } from "obsidian";
 import { BibleView, BibleViewType } from "BibleView";
-import type { BibleProviderRoute } from "BibleView";
+import type { BibleLanguageOption, BibleProviderRoute } from "BibleView";
 import { BibleSidecarSettingsTab } from "./settings";
 
 interface BibleSidecarSettings {
@@ -176,6 +176,7 @@ export default class BibleSidecarPlugin extends Plugin {
 					translations: this.getBibleTranslationsForLanguage(language),
 					defaultVersion: this.getDefaultBibleVersion(language),
 				}));
+				view.setLanguageOptionsResolver(() => this.getBibleViewLanguageOptions());
 				view.setProviderResolver((language, version) =>
 					this.resolveBibleProvider(language, version)
 				);
@@ -399,6 +400,13 @@ export default class BibleSidecarPlugin extends Plugin {
 
 	getBibleLanguageOptions(): { key: string; label: string }[] {
 		return this.mergedCatalog.map(({ key, label }) => ({ key, label }));
+	}
+
+	getBibleViewLanguageOptions(): BibleLanguageOption[] {
+		return this.getBibleLanguageOptions().map((language) => ({
+			code: language.key,
+			label: language.label,
+		}));
 	}
 
 	resolveBibleLanguageKey(language: string): string {

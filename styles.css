@@ -30,6 +30,46 @@ If your plugin does not need CSS, delete this file.
 [data-type="bible-view"] .active-verse {
 	text-decoration: dotted underline;
 }
+[data-type="bible-view"] .chapter-content {
+	--bible-sidecar-poetry-indent: var(--size-4-4);
+	line-height: var(--line-height-normal);
+	text-wrap: pretty;
+}
+[data-type="bible-view"] .verse .helloao-line-break {
+	display: block;
+	margin-block-end: var(--size-2-1);
+}
+[data-type="bible-view"] .verse .poetry-line {
+	display: inline-block;
+	max-width: calc(
+		100% - (var(--bible-sidecar-poetry-level, 0) * var(--bible-sidecar-poetry-indent))
+	);
+	margin-inline-start: calc(
+		var(--bible-sidecar-poetry-level, 0) * var(--bible-sidecar-poetry-indent)
+	);
+	padding-inline-end: var(--size-2-1);
+	line-height: var(--line-height-normal);
+	vertical-align: baseline;
+}
+[data-type="bible-view"] .verse .poetry-indent-1 {
+	--bible-sidecar-poetry-level: 1;
+}
+[data-type="bible-view"] .verse .poetry-indent-2 {
+	--bible-sidecar-poetry-level: 2;
+}
+[data-type="bible-view"] .verse .poetry-indent-3 {
+	--bible-sidecar-poetry-level: 3;
+}
+[data-type="bible-view"] .verse .poetry-indent-4 {
+	--bible-sidecar-poetry-level: 4;
+}
+[data-type="bible-view"] .verse .helloao-line-break + .poetry-line {
+	margin-block-start: var(--size-2-1);
+}
+[data-type="bible-view"] .words-of-jesus {
+	color: var(--text-accent);
+	font-weight: var(--font-medium, 500);
+}
 [data-type="bible-view"] .bible-wrapper {
 	height: 100%;
 	overflow-y: auto;
@@ -52,6 +92,7 @@ If your plugin does not need CSS, delete this file.
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--size-4-2);
+	flex-wrap: wrap;
 	width: 100%;
 	margin-block-end: var(--size-4-2);
 }
@@ -72,16 +113,31 @@ If your plugin does not need CSS, delete this file.
 	min-width: 0;
 }
 
-[data-type="bible-view"] .translation-control {
-	flex: 0 1 11rem;
-	max-width: 55%;
+[data-type="bible-view"] .bible-sidecar-selectors {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--size-2-2);
+	flex: 1 1 16rem;
+	flex-wrap: wrap;
+	min-width: 0;
 	margin-inline-start: auto;
 }
 
+[data-type="bible-view"] .language-control {
+	flex: 0 1 6.75rem;
+	min-width: 4.75rem;
+}
+
+[data-type="bible-view"] .translation-control {
+	flex: 1 1 10rem;
+	min-width: 7.5rem;
+	max-width: 12rem;
+}
+
+[data-type="bible-view"] .language-select,
 [data-type="bible-view"] .translation-select {
 	width: 100%;
-	min-width: 6.5rem;
-	max-width: 11rem;
 	height: var(--input-height);
 	padding-inline: var(--size-4-2);
 	font-size: var(--font-ui-smaller);
@@ -91,6 +147,11 @@ If your plugin does not need CSS, delete this file.
 	border-radius: var(--input-radius);
 }
 
+[data-type="bible-view"] .language-select {
+	color: var(--text-muted);
+}
+
+[data-type="bible-view"] .language-select:focus,
 [data-type="bible-view"] .translation-select:focus {
 	border-color: var(--interactive-accent);
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
