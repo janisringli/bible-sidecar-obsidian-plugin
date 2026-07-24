@@ -217,6 +217,17 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 					});
 			});
 		new Setting(containerEl)
+			.setName("Show footnotes")
+			.setDesc("Show structured footnote markers and a footnotes section when available")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showFootnotes)
+					.onChange((value) => {
+						this.plugin.settings.showFootnotes = value;
+						this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
 			.setName("Copy format").setHeading()
 			.setDesc("Choose how you want the Bible text to be copied")
 			.addDropdown((dropdown: any) => {

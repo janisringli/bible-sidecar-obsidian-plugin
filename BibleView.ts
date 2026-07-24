@@ -18,6 +18,7 @@ interface BibleSidecarSettings {
 	verseReferenceInternalLinking: boolean;
 	verseReferenceInternalLinkingFormat: string;
 	bibleLanguage: string;
+	showFootnotes: boolean;
 }
 
 interface BibleBook {
@@ -76,15 +77,29 @@ interface HelloAOVerse {
 	content: HelloAOInlineContent[];
 }
 
+interface HelloAOFootnote {
+	noteId: number;
+	caller: string;
+	text: string;
+}
+
 interface HelloAOChapter {
 	chapter: {
 		content: Array<HelloAOHeading | HelloAOLineBreak | HelloAOHebrewSubtitle | HelloAOVerse>;
+		footnotes?: HelloAOFootnote[];
 	};
 }
 
 interface SelectedVerse {
 	verse: number;
 	text: string;
+}
+
+interface HelloAOFootnoteRenderContext {
+	footnotes: Map<number, HelloAOFootnote>;
+	footnoteNumbers: Map<number, number>;
+	usedFootnotes: HelloAOFootnote[];
+	showFootnotes: boolean;
 }
 
 const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
@@ -94,6 +109,7 @@ const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	verseReferenceStyle: "- ",
 	verseReferenceFormat: "full",
 	verseReferenceInternalLinking: false,
+	showFootnotes: false,
 	bibleLanguage: "en",
 };
 
@@ -416,6 +432,15 @@ export class BibleView extends ItemView {
 		book: BibleBook,
 		chapterNumber: number
 	): void {
+		const footnoteContext: HelloAOFootnoteRenderContext = {
+			footnotes: new Map(
+				(chapter.chapter.footnotes || []).map((footnote) => [footnote.noteId, footnote])
+			),
+			footnoteNumbers: new Map(),
+			usedFootnotes: [],
+			showFootnotes: this.settings.showFootnotes,
+		};
+
 		for (const block of chapter.chapter.content) {
 			if (block.type === "heading") {
 				container.createEl("h3", {
@@ -439,7 +464,7 @@ export class BibleView extends ItemView {
 			const formattedVerse = container.createEl("span", { cls: "verse" });
 			formattedVerse.createEl("sup", { text: String(block.number) });
 			formattedVerse.appendChild(document.createTextNode(" "));
-			this.appendHelloAOInlineContent(formattedVerse, block.content);
+			this.appendHelloAOInlineContent(formattedVerse, block.content, footnoteContext);
 			this.bindVerseSelection(
 				formattedVerse,
 				block.number,
@@ -450,11 +475,14 @@ export class BibleView extends ItemView {
 			);
 			container.appendChild(document.createTextNode(" "));
 		}
+
+		this.renderHelloAOFootnotes(container, footnoteContext);
 	}
 
 	private appendHelloAOInlineContent(
 		container: HTMLElement,
-		content: HelloAOInlineContent[]
+		content: HelloAOInlineContent[],
+		footnoteContext: HelloAOFootnoteRenderContext
 	): void {
 		for (const item of content) {
 			if (typeof item === "string") {
@@ -476,7 +504,83 @@ export class BibleView extends ItemView {
 				continue;
 			}
 
+			this.appendHelloAOFootnoteMarker(container, item.noteId, footnoteContext);
 			container.appendChild(document.createTextNode(" "));
+		}
+	}
+
+	private appendHelloAOFootnoteMarker(
+		container: HTMLElement,
+		noteId: number,
+		footnoteContext: HelloAOFootnoteRenderContext
+	): void {
+		if (!footnoteContext.showFootnotes) {
+			return;
+		}
+
+		const footnote = footnoteContext.footnotes.get(noteId);
+		if (!footnote) {
+			return;
+		}
+
+		let footnoteNumber = footnoteContext.footnoteNumbers.get(noteId);
+		if (!footnoteNumber) {
+			footnoteNumber = footnoteContext.footnoteNumbers.size + 1;
+			footnoteContext.footnoteNumbers.set(noteId, footnoteNumber);
+			footnoteContext.usedFootnotes.push(footnote);
+		}
+
+		container.createEl("sup", {
+			text: this.getFootnoteLabel(footnoteNumber),
+			cls: "helloao-footnote-ref",
+		});
+	}
+
+	private getFootnoteLabel(footnoteNumber: number): string {
+		let label = "";
+		let value = footnoteNumber;
+
+		while (value > 0) {
+			value--;
+			label = String.fromCharCode(97 + (value % 26)) + label;
+			value = Math.floor(value / 26);
+		}
+
+		return label;
+	}
+
+	private renderHelloAOFootnotes(
+		container: HTMLElement,
+		footnoteContext: HelloAOFootnoteRenderContext
+	): void {
+		if (!footnoteContext.showFootnotes || footnoteContext.usedFootnotes.length === 0) {
+			return;
+		}
+
+		const footnotesSection = container.createDiv({ cls: "helloao-footnotes" });
+		footnotesSection.createEl("hr", { cls: "helloao-footnotes-divider" });
+		footnotesSection.createEl("h3", {
+			text: "Footnotes",
+			cls: "helloao-footnotes-heading",
+		});
+		const footnotesList = footnotesSection.createEl("div", {
+			cls: "helloao-footnotes-list",
+		});
+		for (const footnote of footnoteContext.usedFootnotes) {
+			const footnoteNumber = footnoteContext.footnoteNumbers.get(footnote.noteId);
+			if (!footnoteNumber) {
+				continue;
+			}
+
+			const footnoteEl = footnotesList.createDiv({ cls: "helloao-footnote" });
+			footnoteEl.createEl("span", {
+				text: `${this.getFootnoteLabel(footnoteNumber)}.`,
+				cls: "helloao-footnote-label",
+			});
+			footnoteEl.createEl("span", {
+				text: ` ${footnote.text}`,
+				cls: "helloao-footnote-text",
+			});
 		}
 	}
 

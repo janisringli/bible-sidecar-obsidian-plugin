@@ -16,6 +16,7 @@ interface BibleSidecarSettings {
 	verseReferenceInternalLinking: boolean;
 	verseReferenceInternalLinkingFormat: string;
 	bibleLanguage: string;
+	showFootnotes: boolean;
 }
 
 export interface BollsTranslation {
@@ -70,6 +71,7 @@ const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	verseReferenceInternalLinking: false,
 	verseReferenceInternalLinkingFormat: "short",
 	bibleLanguage: "en",
+	showFootnotes: false,
 };
 
 const LANGUAGE_DEFAULT_VERSIONS: Record<string, string> = {
