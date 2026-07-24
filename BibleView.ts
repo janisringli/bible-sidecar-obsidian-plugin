@@ -9,6 +9,16 @@ export interface BibleProviderRoute {
 	translationId: string;
 }
 
+export interface BibleTranslationOption {
+	short_name: string;
+	full_name: string;
+}
+
+export interface BibleTranslationOptionsState {
+	translations: BibleTranslationOption[];
+	defaultVersion: string;
+}
+
 interface BibleSidecarSettings {
 	bibleVersion: string;
 	copyFormat: string;
@@ -118,10 +128,19 @@ export class BibleView extends ItemView {
 	backButton: HTMLElement;
 	previousButton: HTMLElement;
 	nextButton: HTMLElement;
+	private activeBibleLanguage = DEFAULT_SETTINGS.bibleLanguage || "en";
+	private activeBibleVersion = DEFAULT_SETTINGS.bibleVersion || "NLT";
+	private defaultBibleLanguage = DEFAULT_SETTINGS.bibleLanguage || "en";
+	private defaultBibleVersion = DEFAULT_SETTINGS.bibleVersion || "NLT";
+	private translationInitializedFromSettings = false;
 	private providerResolver: (language: string, version: string) => BibleProviderRoute = (
 		_language,
 		version
 	) => ({ provider: "bolls", translationId: version });
+	private translationOptionsResolver: (language: string) => BibleTranslationOptionsState = () => ({
+		translations: [],
+		defaultVersion: this.activeBibleVersion,
+	});
 
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
@@ -141,6 +160,7 @@ export class BibleView extends ItemView {
 
 	public load(): void {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings);
+		this.resetActiveTranslationFromSettings();
 		super.load();
 	}
 
@@ -150,12 +170,30 @@ export class BibleView extends ItemView {
 		this.providerResolver = resolver;
 	}
 
+	public setTranslationOptionsResolver(
+		resolver: (language: string) => BibleTranslationOptionsState
+	): void {
+		this.translationOptionsResolver = resolver;
+		this.ensureActiveTranslationIsAvailable();
+	}
+
 	public updateSettings(newSettings: BibleSidecarSettings): void {
+		const defaultTranslationChanged =
+			newSettings.bibleLanguage !== this.defaultBibleLanguage ||
+			newSettings.bibleVersion !== this.defaultBibleVersion;
 		this.settings = newSettings;
+		if (defaultTranslationChanged) {
+			this.resetActiveTranslationFromSettings();
+		} else {
+			this.ensureActiveTranslationIsAvailable();
+		}
 		void this.loadBible();
 	}
 
 	async onOpen(): Promise<void> {
+		if (!this.translationInitializedFromSettings) {
+			this.resetActiveTranslationFromSettings();
+		}
 		await this.loadBible();
 	}
 
@@ -216,7 +254,98 @@ export class BibleView extends ItemView {
 	}
 
 	private resolveProviderRoute(): BibleProviderRoute {
-		return this.providerResolver(this.settings.bibleLanguage, this.settings.bibleVersion);
+		this.ensureActiveTranslationIsAvailable();
+		return this.providerResolver(this.activeBibleLanguage, this.activeBibleVersion);
+	}
+
+	private resetActiveTranslationFromSettings(): void {
+		this.defaultBibleLanguage = this.settings.bibleLanguage;
+		this.defaultBibleVersion = this.settings.bibleVersion;
+		this.activeBibleLanguage = this.settings.bibleLanguage;
+		this.activeBibleVersion = this.settings.bibleVersion;
+		this.translationInitializedFromSettings = true;
+		this.ensureActiveTranslationIsAvailable();
+	}
+
+	private getTranslationOptionsState(): BibleTranslationOptionsState {
+		return this.translationOptionsResolver(this.activeBibleLanguage);
+	}
+
+	private ensureActiveTranslationIsAvailable(): void {
+		const optionsState = this.getTranslationOptionsState();
+		if (!optionsState.translations.length) {
+			return;
+		}
+
+		const activeVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === this.activeBibleVersion
+		);
+		if (activeVersionExists) {
+			return;
+		}
+
+		const defaultVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === optionsState.defaultVersion
+		);
+		this.activeBibleVersion = defaultVersionExists
+			? optionsState.defaultVersion
+			: optionsState.translations[0].short_name;
+	}
+
+	private renderTranslationSelector(container: HTMLElement): void {
+		this.ensureActiveTranslationIsAvailable();
+		const optionsState = this.getTranslationOptionsState();
+		const translations = optionsState.translations.length
+			? optionsState.translations
+			: [
+				{
+					short_name: this.activeBibleVersion,
+					full_name: this.activeBibleVersion,
+				},
+			];
+		const activeTranslation = translations.find(
+			(translation) => translation.short_name === this.activeBibleVersion
+		);
+		const control = container.createDiv({ cls: "translation-control" });
+		const select = control.createEl("select", {
+			cls: "translation-select",
+			attr: {
+				"aria-label": "Bible translation",
+				title: activeTranslation?.full_name || this.activeBibleVersion,
+			},
+		});
+
+		for (const translation of translations) {
+			select.createEl("option", {
+				text: `${translation.short_name} - ${translation.full_name}`,
+				attr: { value: translation.short_name },
+			});
+		}
+
+		select.value = this.activeBibleVersion;
+		select.addEventListener("change", () => {
+			this.activeBibleVersion = select.value;
+			const selectedTranslation = translations.find(
+				(translation) => translation.short_name === select.value
+			);
+			if (selectedTranslation) {
+				select.setAttr("title", selectedTranslation.full_name);
+			}
+			void this.loadBible();
+		});
+	}
+
+	private createBibleHeader(container: HTMLElement, title?: string): HTMLElement {
+		const header = container.createDiv({ cls: "bible-sidecar-header" });
+		const headerPrimary = header.createDiv({ cls: "bible-sidecar-header-primary" });
+		if (title) {
+			headerPrimary.createEl("h2", {
+				text: title,
+				cls: "bible-sidecar-heading",
+			});
+		}
+		this.renderTranslationSelector(header);
+		return headerPrimary;
 	}
 
 	convertToSuperscript(number: string): string {
@@ -263,7 +392,7 @@ export class BibleView extends ItemView {
 
 		const chapterWrapper = containerEl.createEl("div", { cls: "bible-wrapper" });
 		const chapterContainer = chapterWrapper.createEl("div", { cls: "chapter-container" });
-		chapterContainer.createEl("div", { cls: "chapter-content" });
+		this.createBibleHeader(chapterContainer, "Books");
 
 		for (const book of books) {
 			if (book.order === 1) {
@@ -297,7 +426,7 @@ export class BibleView extends ItemView {
 	): Promise<void> {
 		chapterContainer.empty();
 
-		const header = chapterContainer.createDiv({ cls: "bible-header" });
+		const header = this.createBibleHeader(chapterContainer, book.name);
 		chapterContainer.createDiv({ cls: "controls-container" });
 		this.backButton = header.createEl("button", {
 			text: Platform.isMobileApp ? "Books" : "Back to books",
@@ -337,7 +466,7 @@ export class BibleView extends ItemView {
 		chapterNumber: number,
 		books: BibleBook[]
 	): void {
-		chapterContainer.createEl("h2", { text: `${book.name} ${chapterNumber}` });
+		this.createBibleHeader(chapterContainer, `${book.name} ${chapterNumber}`);
 		const controlsContainer = chapterContainer.createDiv({ cls: "controls-container" });
 
 		this.previousButton = controlsContainer.createEl("button", {

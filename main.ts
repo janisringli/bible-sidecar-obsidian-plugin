@@ -172,6 +172,10 @@ export default class BibleSidecarPlugin extends Plugin {
 				const view = new BibleView(leaf);
 				this.view = view;
 				view.settings = this.settings;
+				view.setTranslationOptionsResolver((language) => ({
+					translations: this.getBibleTranslationsForLanguage(language),
+					defaultVersion: this.getDefaultBibleVersion(language),
+				}));
 				view.setProviderResolver((language, version) =>
 					this.resolveBibleProvider(language, version)
 				);

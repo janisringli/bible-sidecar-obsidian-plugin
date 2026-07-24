@@ -42,5 +42,56 @@ If your plugin does not need CSS, delete this file.
 	flex-direction: row;
 	justify-content: space-between;
 	align-items: center;
+	gap: var(--size-4-2);
+	flex-wrap: wrap;
 	width: 100%;
+}
+
+[data-type="bible-view"] .bible-sidecar-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	width: 100%;
+	margin-block-end: var(--size-4-2);
+}
+
+[data-type="bible-view"] .bible-sidecar-header-primary {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-width: 0;
+	flex: 1 1 auto;
+	flex-wrap: wrap;
+}
+
+[data-type="bible-view"] .bible-sidecar-heading {
+	margin: 0;
+	font-size: var(--font-ui-medium);
+	line-height: var(--line-height-tight);
+	min-width: 0;
+}
+
+[data-type="bible-view"] .translation-control {
+	flex: 0 1 11rem;
+	max-width: 55%;
+	margin-inline-start: auto;
+}
+
+[data-type="bible-view"] .translation-select {
+	width: 100%;
+	min-width: 6.5rem;
+	max-width: 11rem;
+	height: var(--input-height);
+	padding-inline: var(--size-4-2);
+	font-size: var(--font-ui-smaller);
+	color: var(--text-normal);
+	background-color: var(--background-modifier-form-field);
+	border: var(--input-border-width) solid var(--background-modifier-border);
+	border-radius: var(--input-radius);
+}
+
+[data-type="bible-view"] .translation-select:focus {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
