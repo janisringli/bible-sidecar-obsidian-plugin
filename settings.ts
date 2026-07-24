@@ -213,7 +213,6 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.bibleVersion)
 					.onChange((value: any) => {
 						this.plugin.settings.bibleVersion = value;
-						
 						this.plugin.saveSettings();
 					});
 			});
