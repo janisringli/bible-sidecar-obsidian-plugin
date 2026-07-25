@@ -1,4 +1,6 @@
 import { ItemView, WorkspaceLeaf, requestUrl, Notice, Platform } from "obsidian";
+import type { BibleReference } from "./references";
+import { getBibleBookOrder } from "./references";
 
 export const BibleViewType = "bible-view";
 
@@ -34,6 +36,8 @@ interface BibleSidecarSettings {
 	verseReferenceInternalLinkingFormat: string;
 	bibleLanguage: string;
 	showFootnotes: boolean;
+	referencePreviewsEnabled: boolean;
+	referencePreviewTrigger: "hover" | "click";
 }
 
 interface BibleBook {
@@ -131,6 +135,8 @@ const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	verseReferenceInternalLinking: false,
 	showFootnotes: false,
 	bibleLanguage: "en",
+	referencePreviewsEnabled: true,
+	referencePreviewTrigger: "hover",
 };
 
 export class BibleView extends ItemView {
@@ -204,6 +210,69 @@ export class BibleView extends ItemView {
 			this.ensureActiveTranslationIsAvailable();
 		}
 		void this.loadBible();
+	}
+
+	public getActiveTranslationState(): { language: string; version: string } {
+		this.ensureActiveTranslationIsAvailable();
+		return {
+			language: this.activeBibleLanguage,
+			version: this.activeBibleVersion,
+		};
+	}
+
+	public async setActiveTranslationState(next: {
+		language: string;
+		version: string;
+	}): Promise<void> {
+		const languageExists = this.getLanguageOptions().some(
+			(language) => language.code === next.language
+		);
+		const language = languageExists ? next.language : this.settings.bibleLanguage;
+		const optionsState = this.translationOptionsResolver(language);
+		const requestedVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === next.version
+		);
+		const fallbackVersion = this.getDefaultTranslationForLanguage(language);
+
+		this.activeBibleLanguage = language;
+		this.activeBibleVersion = requestedVersionExists ? next.version : fallbackVersion;
+		this.ensureActiveTranslationIsAvailable();
+		await this.reloadCurrentLocation();
+	}
+
+	public async openReference(reference: BibleReference): Promise<void> {
+		const books = await this.generateBibleBooks();
+		const bookOrder = getBibleBookOrder(reference.canon) || reference.order;
+		const book = this.findBookByOrder(books, bookOrder);
+		if (!book) {
+			new Notice(`Could not find ${reference.canon} in the active Bible.`);
+			return;
+		}
+
+		this.containerEl.empty();
+		const chapterWrapper = this.containerEl.createEl("div", { cls: "bible-wrapper" });
+		const chapterContainer = chapterWrapper.createEl("div", { cls: "chapter-container" });
+		await this.openChapter(
+			book,
+			Math.min(reference.chapter, book.chapters),
+			chapterContainer,
+			books
+		);
+	}
+
+	public async renderReferencePreview(
+		reference: BibleReference,
+		container: HTMLElement
+	): Promise<void> {
+		const books = await this.generateBibleBooks();
+		const book = this.findBookByOrder(books, getBibleBookOrder(reference.canon) || reference.order);
+		if (!book) {
+			container.setText("Could not find this book in the active Bible.");
+			return;
+		}
+
+		const content = await this.getChapterContent(book, Math.min(reference.chapter, book.chapters));
+		this.renderReferencePreviewContent(content, reference, container);
 	}
 
 	async onOpen(): Promise<void> {
@@ -677,6 +746,89 @@ export class BibleView extends ItemView {
 			);
 			container.appendChild(document.createTextNode(" "));
 		}
+	}
+
+	private renderReferencePreviewContent(
+		chapter: BollsVerse[] | HelloAOChapter,
+		reference: BibleReference,
+		container: HTMLElement
+	): void {
+		container.empty();
+		if (Array.isArray(chapter)) {
+			this.renderBollsPreview(chapter, reference, container);
+			return;
+		}
+		this.renderHelloAOPreview(chapter, reference, container);
+	}
+
+	private renderBollsPreview(
+		chapter: BollsVerse[],
+		reference: BibleReference,
+		container: HTMLElement
+	): void {
+		const verses = chapter.filter((verse) => this.referenceIncludesVerse(reference, Number(verse.verse)));
+		if (!verses.length) {
+			container.setText("No text found for this reference.");
+			return;
+		}
+
+		for (const verse of verses) {
+			const formattedVerse = container.createEl("span", { cls: "bible-sidecar-preview-verse" });
+			formattedVerse.createEl("sup", {
+				text: verse.verse,
+				cls: "bible-sidecar-preview-verse-number",
+			});
+			formattedVerse.appendChild(document.createTextNode(" "));
+			this.appendVerseText(formattedVerse, verse.text);
+			container.appendChild(document.createTextNode(" "));
+		}
+	}
+
+	private renderHelloAOPreview(
+		chapter: HelloAOChapter,
+		reference: BibleReference,
+		container: HTMLElement
+	): void {
+		const footnoteContext: HelloAOFootnoteRenderContext = {
+			footnotes: new Map(),
+			footnoteNumbers: new Map(),
+			usedFootnotes: [],
+			showFootnotes: false,
+		};
+		let renderedVerses = 0;
+
+		for (const block of chapter.chapter.content) {
+			if (block.type !== "verse" || !this.referenceIncludesVerse(reference, block.number)) {
+				continue;
+			}
+
+			const formattedVerse = container.createEl("span", { cls: "bible-sidecar-preview-verse" });
+			formattedVerse.createEl("sup", {
+				text: String(block.number),
+				cls: "bible-sidecar-preview-verse-number",
+			});
+			formattedVerse.appendChild(document.createTextNode(" "));
+			this.appendHelloAOInlineContent(formattedVerse, block.content, footnoteContext);
+			container.appendChild(document.createTextNode(" "));
+			renderedVerses++;
+		}
+
+		if (!renderedVerses) {
+			container.setText("No text found for this reference.");
+		}
+	}
+
+	private referenceIncludesVerse(reference: BibleReference, verseNumber: number): boolean {
+		if (!Number.isInteger(verseNumber)) {
+			return false;
+		}
+		if (reference.vStart === null) {
+			return true;
+		}
+		const rangeEnd = reference.vEnd === null ? reference.vStart : reference.vEnd;
+		const first = Math.min(reference.vStart, rangeEnd);
+		const last = Math.max(reference.vStart, rangeEnd);
+		return verseNumber >= first && verseNumber <= last;
 	}
 
 	private renderHelloAOChapter(

@@ -156,3 +156,281 @@ If your plugin does not need CSS, delete this file.
 	border-color: var(--interactive-accent);
 	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
 }
+
+.bible-sidecar-ref {
+	color: var(--text-accent);
+	cursor: pointer;
+	text-decoration: none;
+	border-bottom: 1px dotted var(--text-accent);
+	border-radius: var(--radius-s);
+	padding-inline: 1px;
+	transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+
+.bible-sidecar-ref:hover,
+.bible-sidecar-ref:focus-visible {
+	color: var(--text-accent-hover, var(--text-accent));
+	background-color: var(--background-modifier-hover);
+	outline: none;
+}
+
+.bible-sidecar-ref-popover {
+	position: fixed;
+	z-index: var(--layer-popover, 48);
+	left: 0;
+	top: 0;
+	display: flex;
+	flex-direction: column;
+	min-width: 220px;
+	max-width: 380px;
+	max-height: 340px;
+	padding: var(--size-4-3);
+	overflow: hidden;
+	color: var(--text-normal);
+	background-color: var(--background-primary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	box-shadow: var(--shadow-l);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-normal);
+	opacity: 0;
+	transform: translateY(4px);
+	pointer-events: none;
+	transition: opacity 160ms ease-out, transform 160ms ease-out;
+}
+
+.bible-sidecar-ref-popover.is-visible {
+	opacity: 1;
+	transform: translateY(0);
+	pointer-events: auto;
+}
+
+.bible-sidecar-ref-popover.is-chapter-reader {
+	width: min(640px, calc(100vw - 24px));
+	max-height: min(760px, calc(100vh - 24px));
+	padding: 26px 30px 22px;
+	transform: none;
+}
+
+.bible-sidecar-ref-popover-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	margin-block-end: var(--size-2-3);
+}
+
+.bible-sidecar-ref-popover-title {
+	font-weight: var(--font-semibold, 600);
+	color: var(--text-accent);
+}
+
+.bible-sidecar-ref-popover-version {
+	flex: 0 0 auto;
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+}
+
+.bible-sidecar-ref-popover-select {
+	flex: 0 1 8.5rem;
+	max-width: 9rem;
+	height: 1.7rem;
+	min-height: 1.7rem;
+	padding: 0 var(--size-4-5) 0 var(--size-2-2);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium, 500);
+	color: var(--text-muted);
+	background-color: var(--background-modifier-form-field);
+	border: var(--input-border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	box-shadow: none;
+	cursor: pointer;
+}
+
+.bible-sidecar-ref-popover-select:hover,
+.bible-sidecar-ref-popover-select:focus {
+	color: var(--text-normal);
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+	outline: none;
+}
+
+.bible-sidecar-ref-popover-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	padding-inline-end: var(--size-2-2);
+	color: var(--text-normal);
+}
+
+.bible-sidecar-ref-popover-body.is-chapter-reader {
+	overflow: hidden;
+	padding-inline-end: 0;
+}
+
+.bible-sidecar-preview-verse {
+	text-wrap: pretty;
+}
+
+.bible-sidecar-preview-verse-number {
+	font-size: 0.72em;
+	font-weight: var(--font-semibold, 600);
+	color: var(--text-accent);
+}
+
+.bible-sidecar-ref-reader {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	max-height: min(650px, calc(100vh - 150px));
+}
+
+.bible-sidecar-ref-reader-header {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-2-3);
+	margin-block-end: var(--size-4-4);
+}
+
+.bible-sidecar-ref-reader-titlewrap {
+	min-width: 0;
+	text-align: center;
+}
+
+.bible-sidecar-ref-reader-title {
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-bold, 700);
+	letter-spacing: -0.01em;
+	line-height: var(--line-height-tight);
+	color: var(--text-normal);
+}
+
+.bible-sidecar-ref-reader-trans {
+	margin-block-start: var(--size-2-1);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium, 500);
+	color: var(--text-muted);
+	text-wrap: balance;
+}
+
+.bible-sidecar-ref-reader-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	max-height: min(60vh, calc(100vh - 230px));
+	overflow-y: auto;
+	padding-inline-end: var(--size-2-3);
+	font-size: max(var(--font-text-size), 16.5px);
+	line-height: 1.72;
+	color: var(--text-normal);
+}
+
+.bible-sidecar-ref-reader-h {
+	margin: 1.05em 0 0.4em;
+	font-size: 1.02em;
+	font-weight: var(--font-bold, 700);
+	letter-spacing: 0.01em;
+	color: var(--text-normal);
+}
+
+.bible-sidecar-ref-reader-h:first-child {
+	margin-top: 0;
+}
+
+.bible-sidecar-ref-reader-p {
+	margin: 0 0 0.85em;
+}
+
+.bible-sidecar-ref-reader-inscr {
+	margin: 0 0 0.6em;
+	font-style: italic;
+	color: var(--text-muted);
+}
+
+.bible-sidecar-ref-reader-poem {
+	margin: 0 0 0.85em;
+}
+
+.bible-sidecar-ref-reader-line {
+	padding-inline-start: 1.4em;
+	text-indent: -0.35em;
+}
+
+.bible-sidecar-ref-reader-line-in {
+	padding-inline-start: 2.6em;
+}
+
+.bible-sidecar-ref-reader-vn {
+	margin: 0 3px 0 1px;
+	font-size: 0.66em;
+	font-weight: var(--font-bold, 700);
+	vertical-align: 0.35em;
+	color: var(--text-accent);
+}
+
+.bible-sidecar-ref-reader-break {
+	height: var(--size-4-2);
+}
+
+.bible-sidecar-ref-reader-body > :last-child {
+	margin-bottom: 0;
+}
+
+.bible-sidecar-ref-reader-body::-webkit-scrollbar,
+.bible-sidecar-ref-popover-body::-webkit-scrollbar {
+	width: 8px;
+}
+
+.bible-sidecar-ref-reader-body::-webkit-scrollbar-thumb,
+.bible-sidecar-ref-popover-body::-webkit-scrollbar-thumb {
+	background: var(--scrollbar-thumb-bg);
+	border: 2px solid transparent;
+	border-radius: var(--radius-s);
+	background-clip: padding-box;
+}
+
+.bible-sidecar-ref-popover-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	flex-wrap: wrap;
+	margin-block-start: var(--size-4-2);
+	padding-block-start: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	font-size: var(--font-ui-smaller);
+}
+
+.bible-sidecar-ref-popover-link {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 1.8rem;
+	padding: 0 var(--size-2-3);
+	color: var(--text-accent);
+	background: transparent;
+	box-shadow: none;
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-medium, 500);
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.bible-sidecar-ref-popover-link:hover,
+.bible-sidecar-ref-popover-link:focus-visible {
+	color: var(--text-accent-hover, var(--text-accent));
+	background-color: var(--background-modifier-hover);
+	border-color: var(--background-modifier-border);
+	text-decoration: underline;
+	outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bible-sidecar-ref,
+	.bible-sidecar-ref-popover {
+		transition: none;
+	}
+}

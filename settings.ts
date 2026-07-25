@@ -228,6 +228,33 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 					});
 			});
 		new Setting(containerEl)
+			.setName("Reference previews").setHeading()
+			.setDesc("Bible Verse Tips-style reference detection is built into Bible Sidecar.");
+		new Setting(containerEl)
+			.setName("Enable reference previews")
+			.setDesc("Highlight Bible references in Reading view and Live Preview. Previews use the Bible language and version selected above.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.referencePreviewsEnabled)
+					.onChange((value) => {
+						this.plugin.settings.referencePreviewsEnabled = value;
+						this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
+			.setName("Preview trigger")
+			.setDesc("Hover: desktop hover shows the preview and click opens Bible Sidecar. Click: click shows the preview, with a footer button that opens Bible Sidecar. Mobile always uses tap.")
+			.addDropdown((dropdown) => {
+				dropdown.addOption("hover", "Hover on desktop");
+				dropdown.addOption("click", "Click or tap");
+				dropdown
+					.setValue(this.plugin.settings.referencePreviewTrigger)
+					.onChange((value) => {
+						this.plugin.settings.referencePreviewTrigger = value === "click" ? "click" : "hover";
+						this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
 			.setName("Copy format").setHeading()
 			.setDesc("Choose how you want the Bible text to be copied")
 			.addDropdown((dropdown: any) => {
