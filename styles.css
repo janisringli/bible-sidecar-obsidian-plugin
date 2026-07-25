@@ -113,6 +113,34 @@ If your plugin does not need CSS, delete this file.
 	min-width: 0;
 }
 
+[data-type="bible-view"] .bible-sidecar-heading-button {
+	margin: 0;
+	padding: 0;
+	font: inherit;
+	line-height: inherit;
+	color: var(--text-normal);
+	background: none;
+	border: none;
+	border-radius: var(--radius-s);
+	cursor: pointer;
+	text-align: start;
+	text-decoration: underline;
+	text-decoration-color: transparent;
+	text-underline-offset: var(--size-2-1);
+	transition: color 150ms ease-out, text-decoration-color 150ms ease-out;
+}
+
+[data-type="bible-view"] .bible-sidecar-heading-button:hover,
+[data-type="bible-view"] .bible-sidecar-heading-button:focus-visible {
+	color: var(--text-accent-hover, var(--text-accent));
+	text-decoration-color: currentColor;
+}
+
+[data-type="bible-view"] .bible-sidecar-heading-button:focus-visible {
+	outline: var(--input-border-width) solid var(--background-modifier-border-focus);
+	outline-offset: var(--size-2-1);
+}
+
 [data-type="bible-view"] .bible-sidecar-selectors {
 	display: flex;
 	align-items: center;

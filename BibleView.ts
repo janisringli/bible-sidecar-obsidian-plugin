@@ -114,6 +114,11 @@ interface SelectedVerse {
 	text: string;
 }
 
+interface BibleHeadingAction {
+	ariaLabel: string;
+	onClick: () => void;
+}
+
 interface HelloAOFootnoteRenderContext {
 	footnotes: Map<number, HelloAOFootnote>;
 	footnoteNumbers: Map<number, number>;
@@ -520,14 +525,30 @@ export class BibleView extends ItemView {
 		return books.find((book) => book.order === bookOrder);
 	}
 
-	private createBibleHeader(container: HTMLElement, title?: string): HTMLElement {
+	private createBibleHeader(
+		container: HTMLElement,
+		title?: string,
+		headingAction?: BibleHeadingAction
+	): HTMLElement {
 		const header = container.createDiv({ cls: "bible-sidecar-header" });
 		const headerPrimary = header.createDiv({ cls: "bible-sidecar-header-primary" });
 		if (title) {
-			headerPrimary.createEl("h2", {
-				text: title,
-				cls: "bible-sidecar-heading",
-			});
+			const heading = headerPrimary.createEl("h2", { cls: "bible-sidecar-heading" });
+			if (headingAction) {
+				heading
+					.createEl("button", {
+						text: title,
+						cls: "bible-sidecar-heading-button",
+						attr: {
+							type: "button",
+							title: headingAction.ariaLabel,
+							"aria-label": headingAction.ariaLabel,
+						},
+					})
+					.addEventListener("click", headingAction.onClick);
+			} else {
+				heading.setText(title);
+			}
 		}
 		const selectors = header.createDiv({ cls: "bible-sidecar-selectors" });
 		this.renderLanguageSelector(selectors);
@@ -660,7 +681,12 @@ export class BibleView extends ItemView {
 			bookOrder: book.order,
 			chapter: chapterNumber,
 		};
-		this.createBibleHeader(chapterContainer, `${book.name} ${chapterNumber}`);
+		this.createBibleHeader(chapterContainer, `${book.name} ${chapterNumber}`, {
+			ariaLabel: `Show chapters for ${book.name}`,
+			onClick: () => {
+				void this.renderChapters(book, chapterContainer, books);
+			},
+		});
 		const controlsContainer = chapterContainer.createDiv({ cls: "controls-container" });
 
 		this.previousButton = controlsContainer.createEl("button", {
