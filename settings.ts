@@ -29,24 +29,32 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			.setName("Bible language")
 			.setDesc("Choose your preferred Bible language")
 			.addDropdown((dropdown: any) => {
-				dropdown.addOption("en", "English | English");
-				dropdown.addOption("es", "Spanish | Español");
-				dropdown.addOption("fr", "French | Français");
-				dropdown.addOption("de", "German | Deutsch");
-				dropdown.addOption("pt", "Portuguese | Português");
-				dropdown.addOption("it", "Italian | Italiano");
-				dropdown.addOption("nl", "Dutch | Nederlands");
-				dropdown.addOption("ar", "Arabic | العربية");
-				dropdown.addOption("ru", "Russian | Русский");
-				dropdown.addOption("in", "Indonesian | Bahasa Indonesia");
+				const dynamicLanguages = this.plugin.getBibleLanguageOptions();
+				if (dynamicLanguages.length) {
+					for (const language of dynamicLanguages) {
+						dropdown.addOption(language.key, language.label);
+					}
+				} else {
+					dropdown.addOption("en", "English | English");
+					dropdown.addOption("es", "Spanish | Español");
+					dropdown.addOption("fr", "French | Français");
+					dropdown.addOption("de", "German | Deutsch");
+					dropdown.addOption("pt", "Portuguese | Português");
+					dropdown.addOption("it", "Italian | Italiano");
+					dropdown.addOption("nl", "Dutch | Nederlands");
+					dropdown.addOption("ar", "Arabic | العربية");
+					dropdown.addOption("ru", "Russian | Русский");
+					dropdown.addOption("in", "Indonesian | Bahasa Indonesia");
+				}
 			dropdown
-				.setValue(this.plugin.settings.bibleLanguage)
+				.setValue(this.plugin.resolveBibleLanguageKey(this.plugin.settings.bibleLanguage))
 				.onChange((value: any) => {
 					this.plugin.settings.bibleLanguage = value;
 					// Set the default version based on the selected language
 					this.plugin.settings.bibleVersion =
+						this.plugin.getDefaultBibleVersion(value) ||
 						LANGUAGE_DEFAULT_VERSIONS[value] ||
-						LANGUAGE_DEFAULT_VERSIONS["en"]; // Fallback to English if not found
+						LANGUAGE_DEFAULT_VERSIONS["en"];
 					// Update the dropdown for the default version
 					const defaultVersionDropdown =
 						containerEl.querySelector(
@@ -65,6 +73,27 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 			.setName("Default bible version")
 			.setDesc("Choose your preferred Bible version")
 			.addDropdown((dropdown: any) => {
+				const dynamicTranslations = this.plugin.getBibleTranslationsForLanguage(this.plugin.settings.bibleLanguage);
+				if (dynamicTranslations.length) {
+					for (const translation of dynamicTranslations) {
+						dropdown.addOption(
+							translation.short_name,
+							`${translation.short_name} - ${translation.full_name}`
+						);
+					}
+
+					if (!dynamicTranslations.some((translation) => translation.short_name === this.plugin.settings.bibleVersion)) {
+						this.plugin.settings.bibleVersion = this.plugin.getDefaultBibleVersion(this.plugin.settings.bibleLanguage);
+					}
+
+					dropdown
+						.setValue(this.plugin.settings.bibleVersion)
+						.onChange((value: any) => {
+							this.plugin.settings.bibleVersion = value;
+							this.plugin.saveSettings();
+						});
+					return;
+				}
 				if(this.plugin.settings.bibleLanguage === "en"){
 				// add translations
 				dropdown.addOption("YLT", "Young's Literal Translation (1898)");
@@ -184,7 +213,44 @@ export class BibleSidecarSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.bibleVersion)
 					.onChange((value: any) => {
 						this.plugin.settings.bibleVersion = value;
-						
+						this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
+			.setName("Show footnotes")
+			.setDesc("Show structured footnote markers and a footnotes section when available")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.showFootnotes)
+					.onChange((value) => {
+						this.plugin.settings.showFootnotes = value;
+						this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
+			.setName("Reference previews").setHeading()
+			.setDesc("Bible Verse Tips-style reference detection is built into Bible Sidecar.");
+		new Setting(containerEl)
+			.setName("Enable reference previews")
+			.setDesc("Highlight Bible references in Reading view and Live Preview. Previews use the Bible language and version selected above.")
+			.addToggle((toggle) => {
+				toggle
+					.setValue(this.plugin.settings.referencePreviewsEnabled)
+					.onChange((value) => {
+						this.plugin.settings.referencePreviewsEnabled = value;
+						this.plugin.saveSettings();
+					});
+			});
+		new Setting(containerEl)
+			.setName("Preview trigger")
+			.setDesc("Hover: desktop hover shows the preview and click opens Bible Sidecar. Click: click shows the preview, with a footer button that opens Bible Sidecar. Mobile always uses tap.")
+			.addDropdown((dropdown) => {
+				dropdown.addOption("hover", "Hover on desktop");
+				dropdown.addOption("click", "Click or tap");
+				dropdown
+					.setValue(this.plugin.settings.referencePreviewTrigger)
+					.onChange((value) => {
+						this.plugin.settings.referencePreviewTrigger = value === "click" ? "click" : "hover";
 						this.plugin.saveSettings();
 					});
 			});

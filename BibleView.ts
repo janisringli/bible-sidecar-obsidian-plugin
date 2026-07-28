@@ -1,6 +1,30 @@
 import { ItemView, WorkspaceLeaf, requestUrl, Notice, Platform } from "obsidian";
+import type { BibleReference } from "./references";
+import { getBibleBookOrder } from "./references";
 
 export const BibleViewType = "bible-view";
+
+export type BibleProvider = "bolls" | "helloao";
+
+export interface BibleProviderRoute {
+	provider: BibleProvider;
+	translationId: string;
+}
+
+export interface BibleTranslationOption {
+	short_name: string;
+	full_name: string;
+}
+
+export interface BibleTranslationOptionsState {
+	translations: BibleTranslationOption[];
+	defaultVersion: string;
+}
+
+export interface BibleLanguageOption {
+	code: string;
+	label: string;
+}
 
 interface BibleSidecarSettings {
 	bibleVersion: string;
@@ -11,8 +35,101 @@ interface BibleSidecarSettings {
 	verseReferenceInternalLinking: boolean;
 	verseReferenceInternalLinkingFormat: string;
 	bibleLanguage: string;
-
+	showFootnotes: boolean;
+	referencePreviewsEnabled: boolean;
+	referencePreviewTrigger: "hover" | "click";
 }
+
+interface BibleBook {
+	id: number | string;
+	code?: string;
+	name: string;
+	chapters: number;
+	order: number;
+}
+
+interface BollsBook {
+	bookid: number;
+	name: string;
+	chapters: number;
+}
+
+interface BollsVerse {
+	verse: string;
+	text: string;
+}
+
+interface HelloAOBook {
+	id: string;
+	name: string;
+	numberOfChapters: number;
+	order: number;
+}
+
+interface HelloAOBooksResponse {
+	books: HelloAOBook[];
+}
+
+type HelloAOInlineContent =
+	| string
+	| { lineBreak: true }
+	| { noteId: number }
+	| { text: string; poem?: number; wordsOfJesus?: boolean };
+
+interface HelloAOHeading {
+	type: "heading";
+	content: HelloAOInlineContent[];
+}
+
+interface HelloAOLineBreak {
+	type: "line_break";
+}
+
+interface HelloAOHebrewSubtitle {
+	type: "hebrew_subtitle";
+	content: HelloAOInlineContent[];
+}
+
+interface HelloAOVerse {
+	type: "verse";
+	number: number;
+	content: HelloAOInlineContent[];
+}
+
+interface HelloAOFootnote {
+	noteId: number;
+	caller: string;
+	text: string;
+}
+
+interface HelloAOChapter {
+	chapter: {
+		content: Array<HelloAOHeading | HelloAOLineBreak | HelloAOHebrewSubtitle | HelloAOVerse>;
+		footnotes?: HelloAOFootnote[];
+	};
+}
+
+interface SelectedVerse {
+	verse: number;
+	text: string;
+}
+
+interface BibleHeadingAction {
+	ariaLabel: string;
+	onClick: () => void;
+}
+
+interface HelloAOFootnoteRenderContext {
+	footnotes: Map<number, HelloAOFootnote>;
+	footnoteNumbers: Map<number, number>;
+	usedFootnotes: HelloAOFootnote[];
+	showFootnotes: boolean;
+}
+
+type BibleViewLocation =
+	| { type: "books" }
+	| { type: "chapters"; bookOrder: number }
+	| { type: "chapter"; bookOrder: number; chapter: number };
 
 const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	bibleVersion: "NLT",
@@ -21,63 +138,424 @@ const DEFAULT_SETTINGS: Partial<BibleSidecarSettings> = {
 	verseReferenceStyle: "- ",
 	verseReferenceFormat: "full",
 	verseReferenceInternalLinking: false,
+	showFootnotes: false,
 	bibleLanguage: "en",
-
-
+	referencePreviewsEnabled: true,
+	referencePreviewTrigger: "hover",
 };
-
 
 export class BibleView extends ItemView {
 	settings: BibleSidecarSettings;
 	backButton: HTMLElement;
 	previousButton: HTMLElement;
 	nextButton: HTMLElement;
+	private activeBibleLanguage = DEFAULT_SETTINGS.bibleLanguage || "en";
+	private activeBibleVersion = DEFAULT_SETTINGS.bibleVersion || "NLT";
+	private defaultBibleLanguage = DEFAULT_SETTINGS.bibleLanguage || "en";
+	private defaultBibleVersion = DEFAULT_SETTINGS.bibleVersion || "NLT";
+	private currentLocation: BibleViewLocation = { type: "books" };
+	private translationInitializedFromSettings = false;
+	private providerResolver: (language: string, version: string) => BibleProviderRoute = (
+		_language,
+		version
+	) => ({ provider: "bolls", translationId: version });
+	private translationOptionsResolver: (language: string) => BibleTranslationOptionsState = () => ({
+		translations: [],
+		defaultVersion: this.activeBibleVersion,
+	});
+	private languageOptionsResolver: () => BibleLanguageOption[] = () => [];
 
 	constructor(leaf: WorkspaceLeaf) {
 		super(leaf);
 	}
 
-	getViewType() {
+	getViewType(): string {
 		return BibleViewType;
 	}
 
-	getDisplayText() {
+	getDisplayText(): string {
 		return "Bible Sidecar";
 	}
 
-	getIcon() {
+	getIcon(): string {
 		return "book-open-text";
 	}
 
 	public load(): void {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, this.settings);
+		this.resetActiveTranslationFromSettings();
 		super.load();
 	}
-	public updateSettings(newSettings: BibleSidecarSettings): void {
-		this.settings = newSettings;
-		this.loadBible(); // Or re-render as needed
-	}
-	async onOpen() {
-		this.loadBible()
+
+	public setProviderResolver(
+		resolver: (language: string, version: string) => BibleProviderRoute
+	): void {
+		this.providerResolver = resolver;
 	}
 
-	async loadBible() {
-		const books = await this.generateBibleBooks(this.settings.bibleVersion);
+	public setTranslationOptionsResolver(
+		resolver: (language: string) => BibleTranslationOptionsState
+	): void {
+		this.translationOptionsResolver = resolver;
+		this.ensureActiveTranslationIsAvailable();
+	}
+
+	public setLanguageOptionsResolver(resolver: () => BibleLanguageOption[]): void {
+		this.languageOptionsResolver = resolver;
+	}
+
+	public updateSettings(newSettings: BibleSidecarSettings): void {
+		const defaultTranslationChanged =
+			newSettings.bibleLanguage !== this.defaultBibleLanguage ||
+			newSettings.bibleVersion !== this.defaultBibleVersion;
+		this.settings = newSettings;
+		if (defaultTranslationChanged) {
+			this.resetActiveTranslationFromSettings();
+		} else {
+			this.ensureActiveTranslationIsAvailable();
+		}
+		void this.loadBible();
+	}
+
+	public getActiveTranslationState(): { language: string; version: string } {
+		this.ensureActiveTranslationIsAvailable();
+		return {
+			language: this.activeBibleLanguage,
+			version: this.activeBibleVersion,
+		};
+	}
+
+	public async setActiveTranslationState(next: {
+		language: string;
+		version: string;
+	}): Promise<void> {
+		const languageExists = this.getLanguageOptions().some(
+			(language) => language.code === next.language
+		);
+		const language = languageExists ? next.language : this.settings.bibleLanguage;
+		const optionsState = this.translationOptionsResolver(language);
+		const requestedVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === next.version
+		);
+		const fallbackVersion = this.getDefaultTranslationForLanguage(language);
+
+		this.activeBibleLanguage = language;
+		this.activeBibleVersion = requestedVersionExists ? next.version : fallbackVersion;
+		this.ensureActiveTranslationIsAvailable();
+		await this.reloadCurrentLocation();
+	}
+
+	public async openReference(reference: BibleReference): Promise<void> {
+		const books = await this.generateBibleBooks();
+		const bookOrder = getBibleBookOrder(reference.canon) || reference.order;
+		const book = this.findBookByOrder(books, bookOrder);
+		if (!book) {
+			new Notice(`Could not find ${reference.canon} in the active Bible.`);
+			return;
+		}
+
+		this.containerEl.empty();
+		const chapterWrapper = this.containerEl.createEl("div", { cls: "bible-wrapper" });
+		const chapterContainer = chapterWrapper.createEl("div", { cls: "chapter-container" });
+		await this.openChapter(
+			book,
+			Math.min(reference.chapter, book.chapters),
+			chapterContainer,
+			books
+		);
+	}
+
+	public async renderReferencePreview(
+		reference: BibleReference,
+		container: HTMLElement
+	): Promise<void> {
+		const books = await this.generateBibleBooks();
+		const book = this.findBookByOrder(books, getBibleBookOrder(reference.canon) || reference.order);
+		if (!book) {
+			container.setText("Could not find this book in the active Bible.");
+			return;
+		}
+
+		const content = await this.getChapterContent(book, Math.min(reference.chapter, book.chapters));
+		this.renderReferencePreviewContent(content, reference, container);
+	}
+
+	async onOpen(): Promise<void> {
+		if (!this.translationInitializedFromSettings) {
+			this.resetActiveTranslationFromSettings();
+		}
+		await this.loadBible();
+	}
+
+	async loadBible(): Promise<void> {
+		const books = await this.generateBibleBooks();
 		this.renderBooks(books);
 	}
 
+	async generateBibleBooks(): Promise<BibleBook[]> {
+		const route = this.resolveProviderRoute();
+		if (route.provider === "helloao") {
+			const response = await requestUrl(
+				`https://bible.helloao.org/api/${encodeURIComponent(route.translationId)}/books.json`
+			);
+			const payload: HelloAOBooksResponse = response.json;
+			return payload.books.map((book) => ({
+				id: book.id,
+				code: book.id,
+				name: book.name,
+				chapters: book.numberOfChapters,
+				order: book.order,
+			}));
+		}
 
-	async generateBibleBooks(language: string) {
-		const url = `https://bolls.life/get-books/${language}`;
-		const response = await requestUrl(url);
-		return response.json;
+		const response = await requestUrl(
+			`https://bolls.life/get-books/${encodeURIComponent(route.translationId)}`
+		);
+		const books: BollsBook[] = response.json;
+		return books.map((book) => ({
+			id: book.bookid,
+			name: book.name,
+			chapters: book.chapters,
+			order: book.bookid,
+		}));
 	}
 
-	async getChapterContent(version: string, bookid: number, chapter: number) {
-		const url = `https://bolls.life/get-chapter/${version}/${bookid}/${chapter}`;
-		const response = await requestUrl(url);
-		return response.json;
+	async getChapterContent(book: BibleBook, chapter: number): Promise<BollsVerse[] | HelloAOChapter> {
+		const route = this.resolveProviderRoute();
+		if (route.provider === "helloao") {
+			if (!book.code) {
+				throw new Error("HelloAO book is missing its provider book code.");
+			}
+			const response = await requestUrl(
+				`https://bible.helloao.org/api/${encodeURIComponent(route.translationId)}/${encodeURIComponent(book.code)}/${chapter}.json`
+			);
+			const payload: HelloAOChapter = response.json;
+			return payload;
+		}
+
+		if (typeof book.id !== "number") {
+			throw new Error("Bolls book is missing its numeric book ID.");
+		}
+		const response = await requestUrl(
+			`https://bolls.life/get-chapter/${encodeURIComponent(route.translationId)}/${book.id}/${chapter}`
+		);
+		const payload: BollsVerse[] = response.json;
+		return payload;
 	}
+
+	private resolveProviderRoute(): BibleProviderRoute {
+		this.ensureActiveTranslationIsAvailable();
+		return this.providerResolver(this.activeBibleLanguage, this.activeBibleVersion);
+	}
+
+	private resetActiveTranslationFromSettings(): void {
+		this.defaultBibleLanguage = this.settings.bibleLanguage;
+		this.defaultBibleVersion = this.settings.bibleVersion;
+		this.activeBibleLanguage = this.settings.bibleLanguage;
+		this.activeBibleVersion = this.settings.bibleVersion;
+		this.translationInitializedFromSettings = true;
+		this.ensureActiveTranslationIsAvailable();
+	}
+
+	private getTranslationOptionsState(): BibleTranslationOptionsState {
+		return this.translationOptionsResolver(this.activeBibleLanguage);
+	}
+
+	private getLanguageOptions(): BibleLanguageOption[] {
+		const languageOptions = this.languageOptionsResolver();
+		if (languageOptions.length) {
+			return languageOptions;
+		}
+
+		return [{ code: this.activeBibleLanguage, label: this.activeBibleLanguage }];
+	}
+
+	private getDefaultTranslationForLanguage(language: string): string {
+		const optionsState = this.translationOptionsResolver(language);
+		const defaultVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === optionsState.defaultVersion
+		);
+		if (defaultVersionExists) {
+			return optionsState.defaultVersion;
+		}
+
+		return optionsState.translations[0]?.short_name || optionsState.defaultVersion;
+	}
+
+	private ensureActiveTranslationIsAvailable(): void {
+		const optionsState = this.getTranslationOptionsState();
+		if (!optionsState.translations.length) {
+			return;
+		}
+
+		const activeVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === this.activeBibleVersion
+		);
+		if (activeVersionExists) {
+			return;
+		}
+
+		const defaultVersionExists = optionsState.translations.some(
+			(translation) => translation.short_name === optionsState.defaultVersion
+		);
+		this.activeBibleVersion = defaultVersionExists
+			? optionsState.defaultVersion
+			: optionsState.translations[0].short_name;
+	}
+
+	private renderLanguageSelector(container: HTMLElement): void {
+		const languageOptions = this.getLanguageOptions();
+		const activeLanguage = languageOptions.find(
+			(language) => language.code === this.activeBibleLanguage
+		);
+		const control = container.createDiv({ cls: "language-control" });
+		const select = control.createEl("select", {
+			cls: "language-select",
+			attr: {
+				"aria-label": "Bible language",
+				title: activeLanguage?.label || this.activeBibleLanguage,
+			},
+		});
+
+		for (const language of languageOptions) {
+			select.createEl("option", {
+				text: language.label,
+				attr: { value: language.code },
+			});
+		}
+
+		if (!activeLanguage) {
+			select.createEl("option", {
+				text: this.activeBibleLanguage,
+				attr: { value: this.activeBibleLanguage },
+			});
+		}
+
+		select.value = this.activeBibleLanguage;
+		select.addEventListener("change", () => {
+			this.activeBibleLanguage = select.value;
+			this.activeBibleVersion = this.getDefaultTranslationForLanguage(select.value);
+			const selectedLanguage = languageOptions.find(
+				(language) => language.code === select.value
+			);
+			if (selectedLanguage) {
+				select.setAttr("title", selectedLanguage.label);
+			}
+			void this.reloadCurrentLocation();
+		});
+	}
+
+	private renderTranslationSelector(container: HTMLElement): void {
+		this.ensureActiveTranslationIsAvailable();
+		const optionsState = this.getTranslationOptionsState();
+		const translations = optionsState.translations.length
+			? optionsState.translations
+			: [
+				{
+					short_name: this.activeBibleVersion,
+					full_name: this.activeBibleVersion,
+				},
+			];
+		const activeTranslation = translations.find(
+			(translation) => translation.short_name === this.activeBibleVersion
+		);
+		const control = container.createDiv({ cls: "translation-control" });
+		const select = control.createEl("select", {
+			cls: "translation-select",
+			attr: {
+				"aria-label": "Bible translation",
+				title: activeTranslation?.full_name || this.activeBibleVersion,
+			},
+		});
+
+		for (const translation of translations) {
+			select.createEl("option", {
+				text: `${translation.short_name} - ${translation.full_name}`,
+				attr: { value: translation.short_name },
+			});
+		}
+
+		select.value = this.activeBibleVersion;
+		select.addEventListener("change", () => {
+			this.activeBibleVersion = select.value;
+			const selectedTranslation = translations.find(
+				(translation) => translation.short_name === select.value
+			);
+			if (selectedTranslation) {
+				select.setAttr("title", selectedTranslation.full_name);
+			}
+			void this.reloadCurrentLocation();
+		});
+	}
+
+	private async reloadCurrentLocation(): Promise<void> {
+		const books = await this.generateBibleBooks();
+		const { containerEl } = this;
+		const location = this.currentLocation;
+		containerEl.empty();
+
+		if (location.type === "books") {
+			this.renderBooks(books);
+			return;
+		}
+
+		const matchingBook = this.findBookByOrder(books, location.bookOrder);
+		if (!matchingBook) {
+			this.renderBooks(books);
+			return;
+		}
+
+		const chapterWrapper = containerEl.createEl("div", { cls: "bible-wrapper" });
+		const chapterContainer = chapterWrapper.createEl("div", { cls: "chapter-container" });
+
+		if (location.type === "chapters") {
+			await this.renderChapters(matchingBook, chapterContainer, books);
+			return;
+		}
+
+		await this.openChapter(
+			matchingBook,
+			Math.min(location.chapter, matchingBook.chapters),
+			chapterContainer,
+			books
+		);
+	}
+
+	private findBookByOrder(books: BibleBook[], bookOrder: number): BibleBook | undefined {
+		return books.find((book) => book.order === bookOrder);
+	}
+
+	private createBibleHeader(
+		container: HTMLElement,
+		title?: string,
+		headingAction?: BibleHeadingAction
+	): HTMLElement {
+		const header = container.createDiv({ cls: "bible-sidecar-header" });
+		const headerPrimary = header.createDiv({ cls: "bible-sidecar-header-primary" });
+		if (title) {
+			const heading = headerPrimary.createEl("h2", { cls: "bible-sidecar-heading" });
+			if (headingAction) {
+				heading
+					.createEl("button", {
+						text: title,
+						cls: "bible-sidecar-heading-button",
+						attr: {
+							type: "button",
+							title: headingAction.ariaLabel,
+							"aria-label": headingAction.ariaLabel,
+						},
+					})
+					.addEventListener("click", headingAction.onClick);
+			} else {
+				heading.setText(title);
+			}
+		}
+		const selectors = header.createDiv({ cls: "bible-sidecar-selectors" });
+		this.renderLanguageSelector(selectors);
+		this.renderTranslationSelector(selectors);
+		return headerPrimary;
+	}
+
 	convertToSuperscript(number: string): string {
 		const superscriptMap = {
 			"0": "⁰",
@@ -92,55 +570,47 @@ export class BibleView extends ItemView {
 			"9": "⁹",
 		};
 
-		const digits = String(number).split("");
-		const superscriptedDigits = digits.map(
-			(digit: keyof typeof superscriptMap) => superscriptMap[digit]
-		);
-		return superscriptedDigits.join("");
-	}
-	convertToNumber(superscriptNumber: string): number {
-		const superscriptMap = {
-			"⁰": "0",
-			"¹": "1",
-			"²": "2",
-			"³": "3",
-			"⁴": "4",
-			"⁵": "5",
-			"⁶": "6",
-			"⁷": "7",
-			"⁸": "8",
-			"⁹": "9",
-		};
-		const digits = superscriptNumber
+		return String(number)
 			.split("")
-			.map(
-				(digit) => superscriptMap[digit as keyof typeof superscriptMap]
-			);
-		return parseInt(digits.join(""), 10);
+			.map((digit: keyof typeof superscriptMap) => superscriptMap[digit])
+			.join("");
 	}
 
-	renderBooks(books: { bookid: number; name: string; chapters: number }[]) {
+	normalizeVerseText(verse: string): string {
+		return verse
+			.replace(/<br\s*\/?>/gi, "\n")
+			.replace(/<\/?(?:i|b)>/gi, "")
+			.replace(/<[^>]+>/g, "")
+			.trimEnd();
+	}
+
+	appendVerseText(container: HTMLElement, verseText: string): void {
+		const lines = this.normalizeVerseText(verseText).split("\n");
+		lines.forEach((line, index) => {
+			if (index > 0) {
+				container.appendChild(document.createElement("br"));
+			}
+			container.appendChild(document.createTextNode(line));
+		});
+	}
+
+	renderBooks(books: BibleBook[]): void {
 		const { containerEl } = this;
 		containerEl.empty();
+		this.currentLocation = { type: "books" };
 
-		const ChapterWrapper = containerEl.createEl("div", {
-			cls: "bible-wrapper",
-		});
-		const chapterContainer = ChapterWrapper.createEl("div", {
-			cls: "chapter-container",
-		});
-		chapterContainer.createEl("div", {
-			cls: "chapter-content",
-		});
+		const chapterWrapper = containerEl.createEl("div", { cls: "bible-wrapper" });
+		const chapterContainer = chapterWrapper.createEl("div", { cls: "chapter-container" });
+		this.createBibleHeader(chapterContainer, "Books");
 
 		for (const book of books) {
-			if (book.bookid === 1) {
+			if (book.order === 1) {
 				chapterContainer.createEl("h4", {
 					text: "Old Testament",
 					cls: "book-divider",
 				});
 			}
-			if (book.bookid === 40) {
+			if (book.order === 40) {
 				chapterContainer.createEl("hr", { cls: "book-divider" });
 				chapterContainer.createEl("h4", {
 					text: "New Testament",
@@ -150,324 +620,484 @@ export class BibleView extends ItemView {
 			chapterContainer
 				.createEl("button", {
 					text: book.name,
-					attr: { id: book.bookid },
+					attr: { id: String(book.id) },
 				})
-				.addEventListener("click", async () => {
-					await this.renderChapters(book, chapterContainer, books);
+				.addEventListener("click", () => {
+					void this.renderChapters(book, chapterContainer, books);
 				});
 		}
 	}
 
 	async renderChapters(
-		book: { bookid: number; name: string; chapters: number },
+		book: BibleBook,
 		chapterContainer: HTMLElement,
-		books: { bookid: number; name: string; chapters: number }[]
-	) {
+		books: BibleBook[]
+	): Promise<void> {
 		chapterContainer.empty();
+		this.currentLocation = { type: "chapters", bookOrder: book.order };
 
-		// Header with back button
-		const header = chapterContainer.createDiv({ cls: "bible-header" });
-		chapterContainer.createDiv({
-			cls: "controls-container",
-		});
-		
-
-		if (Platform.isMobileApp) {
-			this.backButton = header.createEl("button", {
-				text: "Books",
-				cls: "back-button",
-			});
-		}
-		else {
-			this.backButton = header.createEl("button", {
-			text: "Back to books",
+		const header = this.createBibleHeader(chapterContainer, book.name);
+		chapterContainer.createDiv({ cls: "controls-container" });
+		this.backButton = header.createEl("button", {
+			text: Platform.isMobileApp ? "Books" : "Back to books",
 			cls: "back-button",
-			});
-		}
-	this.backButton.addEventListener("click", () => {
-		this.onOpen();
-	});
-		
+		});
+		this.backButton.addEventListener("click", () => {
+			void this.onOpen();
+		});
 
-		for (let i = 1; i <= book.chapters; i++) {
+		for (let chapter = 1; chapter <= book.chapters; chapter++) {
 			chapterContainer
 				.createEl("button", {
-					text: i.toString(),
+					text: chapter.toString(),
 					cls: "chapter-button",
 				})
-				.addEventListener("click", async () => {
-					const chapterContentArray = await this.getChapterContent(this.settings.bibleVersion,
-						book.bookid,
-						i
-					);
-					chapterContainer.empty();
-
-					this.processChapterContent(
-						chapterContentArray,
-						chapterContainer,
-						book,
-						i,
-						books
-					);
+				.addEventListener("click", () => {
+					void this.openChapter(book, chapter, chapterContainer, books);
 				});
 		}
 	}
-	processChapterContent(
-		chapter: { verse: string; text: string }[],
-		chapterContainer: HTMLElement,
-		book: { bookid: number; name: string; chapters: number },
-		i: number,
-		books: { bookid: number; name: string; chapters: number }[]
-	) {
-		chapterContainer.createEl("h2", { text: `${book.name} ${i}` });
-		const controlsContainer = chapterContainer.createDiv({
-			cls: "controls-container",
-		});
-		
-		if (Platform.isMobileApp) {
-			this.previousButton = controlsContainer.createEl("button", {
-				text: "Previous",
-				cls: "previous-button",
-			});
-		}
-		else {
-			this.previousButton = controlsContainer.createEl("button", {
-				text: "Previous chapter",
-				cls: "previous-button",
-			});
-		}
-		this.previousButton.addEventListener("click", async () => {
-			let newChapter = i - 1;
-			if (newChapter < 1) {
-				newChapter = 1;
-			} else {
-				const previousChapterContent = await this.getChapterContent(this.settings.bibleVersion,
-					book.bookid,
-					newChapter
-				);
-				chapterContainer.empty();
-				this.processChapterContent(
-					previousChapterContent,
-					chapterContainer,
-					book,
-					newChapter,
-					books
-				);
-			}
-		});
-		
 
-		if (Platform.isMobileApp) {
-			this.backButton = controlsContainer.createEl("button", {
-				text: "Back",
-				cls: "back-button",
-			});
-		}
-		else {
-			this.backButton = controlsContainer.createEl("button", {
-				text: "Back to books",
-				cls: "back-button",
-			});
-		}
-
-		this.backButton.addEventListener("click", () => {
-			this.onOpen();
-		});
-		
-
-		if (Platform.isMobileApp) {
-			this.nextButton = controlsContainer.createEl("button", {
-				text: "Next",
-				cls: "next-button",
-			});
-		}
-		else {
-			this.nextButton = controlsContainer.createEl("button", {
-				text: "Next chapter",
-				cls: "next-button",
-			});
-		}
-
-		this.nextButton.addEventListener("click", async () => {
-			//todo: add logic to go to next chapter
-			let newChapter = i + 1;
-			if (newChapter > book.chapters) {
-				const newBookId = book.bookid + 1;
-				const newBook = books[newBookId - 1];
-				newChapter = 1;
-				const nextChapterContent = await this.getChapterContent(this.settings.bibleVersion,
-					newBookId,
-					newChapter
-				);
-				chapterContainer.empty();
-				this.processChapterContent(
-					nextChapterContent,
-					chapterContainer,
-					newBook,
-					newChapter,
-					books
-				);
-			} else {
-				const nextChapterContent = await this.getChapterContent(this.settings.bibleVersion,
-					book.bookid,
-					newChapter
-				);
-
-				chapterContainer.empty();
-				this.processChapterContent(
-					nextChapterContent,
-					chapterContainer,
-					book,
-					newChapter,
-					books
-				);
-			}
-		});
-		const chapterContent = chapterContainer.createEl("div", {
-			cls: "chapter-content",
-		});
-		chapterContent.empty();
-
-		
-		let accumulatedVerseText = "";
-
-		function filterVerse(verse: string): string {
-			return verse.replace(/<br\s*\/?>|<\/?i>|<\/?b>/gi, "\n");
-		}
-
-		for (const verse of chapter) {
-			const formattedVerseNumber = this.convertToSuperscript(verse.verse);
-			const filteredVerseText = filterVerse(verse.text);
-
-			const formattedVerse = chapterContent.createEl("span", {
-				cls: "verse", // other properties if needed
-			});
-
-			formattedVerse.appendChild(
-				document.createTextNode(
-					`${formattedVerseNumber} ${filteredVerseText}`
-				)
-			);
-
-			formattedVerse.addEventListener("click", () => {
-				formattedVerse.classList.toggle("active-verse");
-
-				const verseIdentifier = `${formattedVerseNumber} ${verse.text}`;
-
-				if (formattedVerse.classList.contains("active-verse")) {
-					accumulatedVerseText += verseIdentifier + " ";
-				} else {
-					accumulatedVerseText = accumulatedVerseText.replace(
-						verseIdentifier + " ",
-						""
-					);
-				}
-				this.renderCopyMessage(book, i, accumulatedVerseText);
-			});
-
-			chapterContent.appendChild(formattedVerse);
-		}
-
-		// Now that scriptureRaw is built, perform the replacement
-
-		// Important: Append the formattedVerse to the DOM somewhere here.
-		// For example:  someContainer.appendChild(formattedVerse);
-	}
-	renderCopyMessage(
-		book: { bookid: number; name: string; chapters: number },
+	private async openChapter(
+		book: BibleBook,
 		chapter: number,
-		accumulatedVerseText: string,
-		//verse: { verse: string; text: string }
-	) {
-		const regex = /[\u2070\u00B9\u00B2\u00B3\u2074-\u2079]+/g;
-		const verses = accumulatedVerseText
-			.split("\n")
-			.flatMap((verse) => {
-				const matches = Array.from(verse.matchAll(regex));
+		chapterContainer: HTMLElement,
+		books: BibleBook[]
+	): Promise<void> {
+		const content = await this.getChapterContent(book, chapter);
+		chapterContainer.empty();
+		this.processChapterContent(content, chapterContainer, book, chapter, books);
+	}
 
-				if (matches.length === 0) {
-					return [{ verse: 0, text: verse.trim() }];
-				}
+	processChapterContent(
+		chapter: BollsVerse[] | HelloAOChapter,
+		chapterContainer: HTMLElement,
+		book: BibleBook,
+		chapterNumber: number,
+		books: BibleBook[]
+	): void {
+		this.currentLocation = {
+			type: "chapter",
+			bookOrder: book.order,
+			chapter: chapterNumber,
+		};
+		this.createBibleHeader(chapterContainer, `${book.name} ${chapterNumber}`, {
+			ariaLabel: `Show chapters for ${book.name}`,
+			onClick: () => {
+				void this.renderChapters(book, chapterContainer, books);
+			},
+		});
+		const controlsContainer = chapterContainer.createDiv({ cls: "controls-container" });
 
-				return matches.map((match) => {
-					const verseNumber = this.convertToNumber(match[0]);
-					const verseStart = (match?.index ?? 0) + (match?.[0]?.length ?? 0);
-					const verseEnd =
-						matches.indexOf(match) === matches.length - 1
-							? verse.length
-							: Array.from(verse.matchAll(regex))[
-									matches.indexOf(match) + 1].index;
-					const verseText = verse
-						.substring(verseStart, verseEnd)
-						.trim();
+		this.previousButton = controlsContainer.createEl("button", {
+			text: Platform.isMobileApp ? "Previous" : "Previous chapter",
+			cls: "previous-button",
+		});
+		this.previousButton.addEventListener("click", () => {
+			if (chapterNumber > 1) {
+				void this.openChapter(book, chapterNumber - 1, chapterContainer, books);
+			}
+		});
 
-					return {
-						verse: verseNumber,
-						text: verseText,
-					};
-				});
-			})
-			.sort((a, b) => {
-				return (a?.verse ?? 0) - (b?.verse ?? 0); // Simplified comparison
-			});
-			
-			//FIXME: 
-			// if (this.settings.copyFormat === "callout") {
-			// 	sortedText += "> ";
-			// 	}
-	
-		for (const verse of verses) {
-			let verseRangeStart = 0;
-			let verseRangeEnd = 0;
-			let sortedText = "";
-			const internalLinkStart = this.settings.verseReferenceInternalLinking === true ? `[[${book.name}]]` : `${book.name}`;
-				
-			
-			console.log("sortedText", sortedText);
-			//new variable to store the sorted text check if setting is set to callout
-			
+		this.backButton = controlsContainer.createEl("button", {
+			text: Platform.isMobileApp ? "Back" : "Back to books",
+			cls: "back-button",
+		});
+		this.backButton.addEventListener("click", () => {
+			void this.onOpen();
+		});
 
-			verses.forEach((verse, index) => {
-				if (verseRangeStart === 0) {
-					verseRangeStart = verse.verse;
-				}
+		this.nextButton = controlsContainer.createEl("button", {
+			text: Platform.isMobileApp ? "Next" : "Next chapter",
+			cls: "next-button",
+		});
+		this.nextButton.addEventListener("click", () => {
+			if (chapterNumber < book.chapters) {
+				void this.openChapter(book, chapterNumber + 1, chapterContainer, books);
+				return;
+			}
 
-				// Check if the current verse is NOT consecutive to the previous one
-				if (index > 0 && verses[index - 1].verse !== verse.verse - 1) {
-					verseRangeEnd = verses[index - 1].verse; // End range at the *previous* verse
-					if (this.settings.copyVerseReference) {
-						sortedText += ` \n${this.settings.copyFormat === "callout" ? "> " : ""}${this.settings.verseReferenceStyle} ${internalLinkStart} ${chapter}:${ 
-							verseRangeStart === verseRangeEnd
-								? verseRangeStart
-								: verseRangeStart + "-" + verseRangeEnd
-						}  \n\n`; // Add range to sortedText
-					}
-					verseRangeStart = verse.verse; // Start a new range with the current verse
-				}
+			const nextBook = books[books.findIndex((candidate) => candidate.id === book.id) + 1];
+			if (nextBook) {
+				void this.openChapter(nextBook, 1, chapterContainer, books);
+			}
+		});
 
-				sortedText += `${this.settings.copyFormat === "callout" ? "> " : ""}${this.convertToSuperscript(
-					verse.verse.toString()
-				)} ${verse.text}`;
-
-				// Handle the last verse
-				if (index === verses.length - 1) {
-					verseRangeEnd = verse.verse;
-					if (this.settings.copyVerseReference) {
-						sortedText += ` \n${this.settings.copyFormat === "callout" ? "> " : ""}${this.settings.verseReferenceStyle} ${internalLinkStart} ${chapter}:${ 
-							verseRangeStart === verseRangeEnd
-								? verseRangeStart
-								: verseRangeStart + "-" + verseRangeEnd
-						} `; // Add the last range or single verse
-					}
-				}
-			});
-			
-	
-			navigator.clipboard.writeText(sortedText.trim());
-
-			new Notice(
-				`Copied ${book.name} ${chapter}:${verse.verse} to clipboard`
+		const chapterContent = chapterContainer.createEl("div", { cls: "chapter-content" });
+		const selectedVerses = new Map<number, string>();
+		if (Array.isArray(chapter)) {
+			this.renderBollsChapter(
+				chapter,
+				chapterContent,
+				selectedVerses,
+				book,
+				chapterNumber
 			);
+			return;
 		}
+		this.renderHelloAOChapter(
+			chapter,
+			chapterContent,
+			selectedVerses,
+			book,
+			chapterNumber
+		);
+	}
+
+	private renderBollsChapter(
+		chapter: BollsVerse[],
+		container: HTMLElement,
+		selectedVerses: Map<number, string>,
+		book: BibleBook,
+		chapterNumber: number
+	): void {
+		for (const verse of chapter) {
+			const verseNumber = Number(verse.verse);
+			if (Number.isNaN(verseNumber)) {
+				continue;
+			}
+			const verseText = this.normalizeVerseText(verse.text);
+			const formattedVerse = container.createEl("span", { cls: "verse" });
+			formattedVerse.appendChild(
+				document.createTextNode(`${this.convertToSuperscript(verse.verse)} `)
+			);
+			this.appendVerseText(formattedVerse, verse.text);
+			this.bindVerseSelection(
+				formattedVerse,
+				verseNumber,
+				verseText,
+				selectedVerses,
+				book,
+				chapterNumber
+			);
+			container.appendChild(document.createTextNode(" "));
+		}
+	}
+
+	private renderReferencePreviewContent(
+		chapter: BollsVerse[] | HelloAOChapter,
+		reference: BibleReference,
+		container: HTMLElement
+	): void {
+		container.empty();
+		if (Array.isArray(chapter)) {
+			this.renderBollsPreview(chapter, reference, container);
+			return;
+		}
+		this.renderHelloAOPreview(chapter, reference, container);
+	}
+
+	private renderBollsPreview(
+		chapter: BollsVerse[],
+		reference: BibleReference,
+		container: HTMLElement
+	): void {
+		const verses = chapter.filter((verse) => this.referenceIncludesVerse(reference, Number(verse.verse)));
+		if (!verses.length) {
+			container.setText("No text found for this reference.");
+			return;
+		}
+
+		for (const verse of verses) {
+			const formattedVerse = container.createEl("span", { cls: "bible-sidecar-preview-verse" });
+			formattedVerse.createEl("sup", {
+				text: verse.verse,
+				cls: "bible-sidecar-preview-verse-number",
+			});
+			formattedVerse.appendChild(document.createTextNode(" "));
+			this.appendVerseText(formattedVerse, verse.text);
+			container.appendChild(document.createTextNode(" "));
+		}
+	}
+
+	private renderHelloAOPreview(
+		chapter: HelloAOChapter,
+		reference: BibleReference,
+		container: HTMLElement
+	): void {
+		const footnoteContext: HelloAOFootnoteRenderContext = {
+			footnotes: new Map(),
+			footnoteNumbers: new Map(),
+			usedFootnotes: [],
+			showFootnotes: false,
+		};
+		let renderedVerses = 0;
+
+		for (const block of chapter.chapter.content) {
+			if (block.type !== "verse" || !this.referenceIncludesVerse(reference, block.number)) {
+				continue;
+			}
+
+			const formattedVerse = container.createEl("span", { cls: "bible-sidecar-preview-verse" });
+			formattedVerse.createEl("sup", {
+				text: String(block.number),
+				cls: "bible-sidecar-preview-verse-number",
+			});
+			formattedVerse.appendChild(document.createTextNode(" "));
+			this.appendHelloAOInlineContent(formattedVerse, block.content, footnoteContext);
+			container.appendChild(document.createTextNode(" "));
+			renderedVerses++;
+		}
+
+		if (!renderedVerses) {
+			container.setText("No text found for this reference.");
+		}
+	}
+
+	private referenceIncludesVerse(reference: BibleReference, verseNumber: number): boolean {
+		if (!Number.isInteger(verseNumber)) {
+			return false;
+		}
+		if (reference.vStart === null) {
+			return true;
+		}
+		const rangeEnd = reference.vEnd === null ? reference.vStart : reference.vEnd;
+		const first = Math.min(reference.vStart, rangeEnd);
+		const last = Math.max(reference.vStart, rangeEnd);
+		return verseNumber >= first && verseNumber <= last;
+	}
+
+	private renderHelloAOChapter(
+		chapter: HelloAOChapter,
+		container: HTMLElement,
+		selectedVerses: Map<number, string>,
+		book: BibleBook,
+		chapterNumber: number
+	): void {
+		const footnoteContext: HelloAOFootnoteRenderContext = {
+			footnotes: new Map(
+				(chapter.chapter.footnotes || []).map((footnote) => [footnote.noteId, footnote])
+			),
+			footnoteNumbers: new Map(),
+			usedFootnotes: [],
+			showFootnotes: this.settings.showFootnotes,
+		};
+
+		for (const block of chapter.chapter.content) {
+			if (block.type === "heading") {
+				container.createEl("h3", {
+					text: this.getHelloAOInlineText(block.content),
+				});
+				continue;
+			}
+			if (block.type === "hebrew_subtitle") {
+				container.createEl("h4", {
+					text: this.getHelloAOInlineText(block.content),
+					cls: "hebrew-subtitle",
+				});
+				continue;
+			}
+			if (block.type === "line_break") {
+				container.createEl("div", { cls: "bible-block-break" });
+				continue;
+			}
+
+			const verseText = this.getHelloAOInlineText(block.content);
+			const formattedVerse = container.createEl("span", { cls: "verse" });
+			formattedVerse.createEl("sup", { text: String(block.number) });
+			formattedVerse.appendChild(document.createTextNode(" "));
+			this.appendHelloAOInlineContent(formattedVerse, block.content, footnoteContext);
+			this.bindVerseSelection(
+				formattedVerse,
+				block.number,
+				verseText,
+				selectedVerses,
+				book,
+				chapterNumber
+			);
+			container.appendChild(document.createTextNode(" "));
+		}
+
+		this.renderHelloAOFootnotes(container, footnoteContext);
+	}
+
+	private appendHelloAOInlineContent(
+		container: HTMLElement,
+		content: HelloAOInlineContent[],
+		footnoteContext: HelloAOFootnoteRenderContext
+	): void {
+		for (const item of content) {
+			if (typeof item === "string") {
+				container.appendChild(document.createTextNode(item));
+				continue;
+			}
+			if ("lineBreak" in item) {
+				const lineBreakEl = document.createElement("br");
+				lineBreakEl.classList.add("helloao-line-break");
+				container.appendChild(lineBreakEl);
+				continue;
+			}
+			if ("text" in item) {
+				const textEl = item.wordsOfJesus || item.poem
+					? container.createEl("span", { cls: item.wordsOfJesus ? "words-of-jesus" : undefined })
+					: container;
+				if (item.poem) {
+					textEl.addClass("poetry-line");
+					textEl.addClass(`poetry-indent-${item.poem}`);
+					textEl.style.setProperty("--bible-sidecar-poetry-level", String(item.poem));
+				}
+				textEl.appendChild(document.createTextNode(item.text));
+				continue;
+			}
+
+			this.appendHelloAOFootnoteMarker(container, item.noteId, footnoteContext);
+			container.appendChild(document.createTextNode(" "));
+		}
+	}
+
+	private appendHelloAOFootnoteMarker(
+		container: HTMLElement,
+		noteId: number,
+		footnoteContext: HelloAOFootnoteRenderContext
+	): void {
+		if (!footnoteContext.showFootnotes) {
+			return;
+		}
+
+		const footnote = footnoteContext.footnotes.get(noteId);
+		if (!footnote) {
+			return;
+		}
+
+		let footnoteNumber = footnoteContext.footnoteNumbers.get(noteId);
+		if (!footnoteNumber) {
+			footnoteNumber = footnoteContext.footnoteNumbers.size + 1;
+			footnoteContext.footnoteNumbers.set(noteId, footnoteNumber);
+			footnoteContext.usedFootnotes.push(footnote);
+		}
+
+		container.createEl("sup", {
+			text: this.getFootnoteLabel(footnoteNumber),
+			cls: "helloao-footnote-ref",
+		});
+	}
+
+	private getFootnoteLabel(footnoteNumber: number): string {
+		let label = "";
+		let value = footnoteNumber;
+
+		while (value > 0) {
+			value--;
+			label = String.fromCharCode(97 + (value % 26)) + label;
+			value = Math.floor(value / 26);
+		}
+
+		return label;
+	}
+
+	private renderHelloAOFootnotes(
+		container: HTMLElement,
+		footnoteContext: HelloAOFootnoteRenderContext
+	): void {
+		if (!footnoteContext.showFootnotes || footnoteContext.usedFootnotes.length === 0) {
+			return;
+		}
+
+		const footnotesSection = container.createDiv({ cls: "helloao-footnotes" });
+		footnotesSection.createEl("hr", { cls: "helloao-footnotes-divider" });
+		footnotesSection.createEl("h3", {
+			text: "Footnotes",
+			cls: "helloao-footnotes-heading",
+		});
+		const footnotesList = footnotesSection.createEl("div", {
+			cls: "helloao-footnotes-list",
+		});
+		for (const footnote of footnoteContext.usedFootnotes) {
+			const footnoteNumber = footnoteContext.footnoteNumbers.get(footnote.noteId);
+			if (!footnoteNumber) {
+				continue;
+			}
+
+			const footnoteEl = footnotesList.createDiv({ cls: "helloao-footnote" });
+			footnoteEl.createEl("span", {
+				text: `${this.getFootnoteLabel(footnoteNumber)}.`,
+				cls: "helloao-footnote-label",
+			});
+			footnoteEl.createEl("span", {
+				text: ` ${footnote.text}`,
+				cls: "helloao-footnote-text",
+			});
+		}
+	}
+
+	private getHelloAOInlineText(content: HelloAOInlineContent[]): string {
+		const text = content
+			.map((item) => {
+				if (typeof item === "string") {
+					return item;
+				}
+				if ("text" in item) {
+					return item.text;
+				}
+				if ("noteId" in item) {
+					return " ";
+				}
+				return "lineBreak" in item ? "\n" : "";
+			})
+			.join("");
+
+		return text
+			.replace(/[ \t]+/g, " ")
+			.replace(/\s+([,.;:!?])/g, "$1")
+			.replace(/\n[ \t]+/g, "\n")
+			.trim();
+	}
+
+	private bindVerseSelection(
+		element: HTMLElement,
+		verseNumber: number,
+		verseText: string,
+		selectedVerses: Map<number, string>,
+		book: BibleBook,
+		chapterNumber: number
+	): void {
+		element.addEventListener("click", () => {
+			element.classList.toggle("active-verse");
+			if (element.classList.contains("active-verse")) {
+				selectedVerses.set(verseNumber, verseText);
+			} else {
+				selectedVerses.delete(verseNumber);
+			}
+			this.renderCopyMessage(
+				book,
+				chapterNumber,
+				[...selectedVerses.entries()].map(([verse, text]) => ({ verse, text }))
+			);
+		});
+	}
+
+	renderCopyMessage(book: BibleBook, chapter: number, selectedVerses: SelectedVerse[]): void {
+		if (!selectedVerses.length) {
+			return;
+		}
+
+		const verses = [...selectedVerses].sort((a, b) => a.verse - b.verse);
+		const prefix = this.settings.copyFormat === "callout" ? "> " : "";
+		const copiedVerseText = verses
+			.map(
+				(verse) =>
+					`${prefix}${this.convertToSuperscript(String(verse.verse))} ${verse.text}`
+			)
+			.join("\n");
+		const referenceText = this.settings.copyVerseReference
+			? this.getCopyReference(book, chapter, verses)
+			: "";
+		const copiedText = [copiedVerseText, referenceText].filter(Boolean).join("\n\n");
+
+		void navigator.clipboard.writeText(copiedText.trim());
+		new Notice(`Copied ${book.name} ${chapter}:${this.getVerseRangeLabel(verses)}`);
+	}
+
+	private getCopyReference(book: BibleBook, chapter: number, verses: SelectedVerse[]): string {
+		const referenceBook = this.settings.verseReferenceInternalLinking
+			? `[[${book.name}]]`
+			: book.name;
+		return `${this.settings.copyFormat === "callout" ? "> " : ""}${this.settings.verseReferenceStyle} ${referenceBook} ${chapter}:${this.getVerseRangeLabel(verses)}`;
+	}
+
+	private getVerseRangeLabel(verses: SelectedVerse[]): string {
+		return verses.length === 1
+			? String(verses[0].verse)
+			: `${verses[0].verse}-${verses[verses.length - 1].verse}`;
 	}
 }
